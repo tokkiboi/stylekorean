@@ -85,11 +85,9 @@ async function refreshAll() {
     ]);
 
     outboundRows = outbound.filter(row => hasAnyValue(row) && row["SOURCE"] && row["SOURCE"] !== "SOURCE");
-    inboundRows = inbound.filter(row => {
-      const type = row["Carrier Type"] || "";
-      const shipment = row["Shipment #"] || "";
-      return hasAnyValue(row) && shipment && type !== "Schedule" && shipment !== "Two-Week ETA Schedule";
-    });
+    inboundRows = inbound
+      .filter(isInboundDataRow)
+      .map(normalizeInboundRow);
 
     populateFilters();
     renderKPIs();
@@ -151,6 +149,42 @@ function normalizeCell(cell) {
 
 function hasAnyValue(row) {
   return Object.values(row).some(v => String(v || "").trim() !== "");
+}
+
+function isInboundDataRow(row) {
+  if (!hasAnyValue(row)) return false;
+  if (containsSheetError(row)) return false;
+
+  const type = norm(row["Carrier Type"]);
+  const shipment = norm(row["Shipment #"]);
+
+  if (type === "CARRIER TYPE" || shipment === "SHIPMENT #") return false;
+  if (type === "SCHEDULE" || shipment.includes("TWO-WEEK ETA SCHEDULE")) return false;
+
+  return [
+    "Shipment #",
+    "Invoice",
+    "MBL",
+    "HBL",
+    "Container",
+    "ETA",
+    "LFD",
+    "Delivery Expected",
+    "Reserved / Broker",
+    "Inbound Status"
+  ].some(col => String(row[col] || "").trim() !== "");
+}
+
+function containsSheetError(row) {
+  return Object.values(row).some(value => /^#(REF|VALUE|N\/A|ERROR|DIV\/0|NAME|NUM)!?$/i.test(String(value || "").trim()));
+}
+
+function normalizeInboundRow(row) {
+  const next = { ...row };
+  if (!next["Shipment #"]) {
+    next["Shipment #"] = next["Container"] || next["HBL"] || next["MBL"] || next["Invoice"] || "";
+  }
+  return next;
 }
 
 function setConnection(kind, text) {
@@ -248,7 +282,7 @@ function renderTimeline() {
     } else {
       matches.slice(0, 8).forEach(row => {
         const li = document.createElement("li");
-        const item = row["Container"] || row["Shipment #"] || row["HBL"] || row["MBL"] || "Shipment";
+        const item = row["Container"] || row["Shipment #"] || row["HBL"] || row["MBL"] || row["Invoice"] || "Shipment";
         li.innerHTML = `<span class="type-pill ${typeClass(row["Carrier Type"])}">${escapeHtml(row["Carrier Type"] || "Other")}</span><br>${escapeHtml(item)}`;
         list.appendChild(li);
       });
