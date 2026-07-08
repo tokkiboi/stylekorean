@@ -14,6 +14,10 @@ const CONFIG = {
     inbound: {
       name: "INBOUND SHIPMENTS DATA",
       range: "A3:Q1200"
+    },
+    importSchedule: {
+      name: "INBOUND SHIPMENTS DATA",
+      range: "U238:AI260"
     }
   }
 };
@@ -55,6 +59,7 @@ const INBOUND_COLUMNS = [
 
 let outboundRows = [];
 let inboundRows = [];
+let importScheduleRows = [];
 
 const $ = (id) => document.getElementById(id);
 
@@ -79,20 +84,23 @@ function wireEvents() {
 async function refreshAll() {
   setConnection("loading", "Loading live Google Sheets data…");
   try {
-    const [outbound, inbound] = await Promise.all([
+    const [outbound, inbound, importSchedule] = await Promise.all([
       fetchSheet(CONFIG.sheets.outbound.name, CONFIG.sheets.outbound.range),
-      fetchSheet(CONFIG.sheets.inbound.name, CONFIG.sheets.inbound.range)
+      fetchSheet(CONFIG.sheets.inbound.name, CONFIG.sheets.inbound.range),
+      fetchSheet(CONFIG.sheets.importSchedule.name, CONFIG.sheets.importSchedule.range)
     ]);
 
     outboundRows = outbound.filter(row => hasAnyValue(row) && row["SOURCE"] && row["SOURCE"] !== "SOURCE");
     inboundRows = inbound
       .filter(isInboundDataRow)
       .map(normalizeInboundRow);
+    importScheduleRows = importSchedule.filter(row => hasAnyValue(row) && !containsSheetError(row));
 
     populateFilters();
     renderKPIs();
     renderSourceLegend();
     renderTimeline();
+    renderImportSchedule();
     renderOutbound();
     renderInbound();
 
@@ -296,6 +304,74 @@ function renderTimeline() {
     card.appendChild(list);
     timeline.appendChild(card);
   });
+}
+
+function renderImportSchedule() {
+  const timeline = $("importScheduleTimeline");
+  if (!timeline) return;
+
+  const dayColumns = getImportScheduleDayColumns();
+  let totalItems = 0;
+  timeline.innerHTML = "";
+
+  dayColumns.forEach(day => {
+    const items = importScheduleRows
+      .flatMap(row => splitScheduleItems(row[day]))
+      .filter(Boolean);
+
+    totalItems += items.length;
+
+    const card = document.createElement("article");
+    card.className = "day-card import-day-card";
+    card.innerHTML = `<strong>${escapeHtml(day)}</strong>`;
+
+    const list = document.createElement("ul");
+    if (!items.length) {
+      const li = document.createElement("li");
+      li.className = "cell-muted";
+      li.textContent = "No imports";
+      list.appendChild(li);
+    } else {
+      items.slice(0, 8).forEach(value => {
+        const parsed = parseScheduleItem(value);
+        const li = document.createElement("li");
+        li.innerHTML = `<span class="type-pill ${typeClass(parsed.type)}">${escapeHtml(parsed.type)}</span><br>${escapeHtml(parsed.item)}`;
+        list.appendChild(li);
+      });
+      if (items.length > 8) {
+        const li = document.createElement("li");
+        li.className = "cell-muted";
+        li.textContent = `+${items.length - 8} more`;
+        list.appendChild(li);
+      }
+    }
+
+    card.appendChild(list);
+    timeline.appendChild(card);
+  });
+
+  $("importScheduleCount").textContent = `${totalItems.toLocaleString()} imports`;
+}
+
+function getImportScheduleDayColumns() {
+  const firstRow = importScheduleRows[0] || {};
+  return Object.keys(firstRow)
+    .filter(key => key && key !== "Schedule" && !/^Column\s+\d+$/i.test(key))
+    .slice(0, 14);
+}
+
+function splitScheduleItems(value) {
+  return String(value || "")
+    .split(/\n+/)
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+function parseScheduleItem(value) {
+  const clean = String(value || "").trim();
+  const match = clean.match(/^([^:]{2,20}):\s*(.*)$/);
+  if (!match) return { type: "Import", item: clean };
+  return { type: match[1].trim(), item: match[2].trim() || clean };
 }
 
 function renderOutbound() {
