@@ -361,6 +361,18 @@ tbody tr:hover {
   color: var(--muted);
 }
 
+.tracking-link {
+  color: var(--blue);
+  font-weight: 800;
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+
+.tracking-link:hover {
+  color: #0a4567;
+}
+
 .type-Ocean { background: #e8f4ff; color: #0f5f8f; }
 .type-UPS { background: #fff0df; color: #795330; }
 .type-FedEx { background: #f2ecff; color: #5b3c86; }

@@ -291,7 +291,10 @@ function renderTimeline() {
       matches.slice(0, 8).forEach(row => {
         const li = document.createElement("li");
         const item = row["Container"] || row["Shipment #"] || row["HBL"] || row["MBL"] || row["Invoice"] || "Shipment";
-        li.innerHTML = `<span class="type-pill ${typeClass(row["Carrier Type"])}">${escapeHtml(row["Carrier Type"] || "Other")}</span><br>${escapeHtml(item)}`;
+        const itemHtml = row["Container"]
+          ? formatTrackingLinks(row["Container"], row)
+          : escapeHtml(item);
+        li.innerHTML = `<span class="type-pill ${typeClass(row["Carrier Type"])}">${escapeHtml(row["Carrier Type"] || "Other")}</span><br>${itemHtml}`;
         list.appendChild(li);
       });
       if (matches.length > 8) {
@@ -451,10 +454,77 @@ function decorateInboundCell(col, value, row) {
   if (col === "Carrier Type") {
     return `<span class="type-pill ${typeClass(value)}">${escapeHtml(value || "Other")}</span>`;
   }
+  if (col === "Container") {
+    return formatTrackingLinks(value, row);
+  }
   if (col === "Inbound Status") {
     return statusPill(value);
   }
   return escapeHtml(value);
+}
+
+function formatTrackingLinks(value, row) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+
+  return text
+    .split(/\n+/)
+    .map(item => item.trim())
+    .filter(Boolean)
+    .map(item => {
+      const url = getTrackingUrl(item, row);
+      if (!url) return escapeHtml(item);
+      return `<a class="tracking-link" href="${escapeAttribute(url)}" target="_blank" rel="noreferrer">${escapeHtml(item)}</a>`;
+    })
+    .join("<br>");
+}
+
+function getTrackingUrl(container, row) {
+  const cleanContainer = String(container || "").trim();
+  if (!cleanContainer) return "";
+
+  const upperContainer = cleanContainer.toUpperCase();
+  const carrierKey = [
+    row["Carrier Type"],
+    row["Shipment #"],
+    row["MBL"],
+    row["HBL"],
+    row["VSL"]
+  ].map(value => String(value || "")).join(" ").toUpperCase();
+  const upsMatch = cleanContainer.match(/\b1Z[A-Z0-9]+\b/i);
+  const uspsMatch = cleanContainer.match(/\b(?:94|92|93)\d{8,}\b/i);
+  const dhlMatch = cleanContainer.match(/\b(?:JJD[A-Z0-9]+|JD[A-Z0-9]+|DHL[A-Z0-9]+)\b/i);
+  const encoded = encodeURIComponent(cleanContainer);
+
+  if (/^1Z/.test(upperContainer) || upsMatch) {
+    return `https://www.ups.com/track?loc=en_US&tracknum=${encodeURIComponent(upsMatch?.[0] || cleanContainer)}`;
+  }
+  if (/^(94|92|93|USPS)/.test(upperContainer) || uspsMatch) {
+    return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(uspsMatch?.[0] || cleanContainer)}`;
+  }
+  if (/^(JD|JJD|DHL)/.test(upperContainer) || dhlMatch) {
+    return `https://www.dhl.com/us-en/home/tracking/tracking-express.html?submit=1&tracking-id=${encodeURIComponent(dhlMatch?.[0] || cleanContainer)}`;
+  }
+  if (/FEDEX|FDX/.test(carrierKey)) {
+    return `https://www.fedex.com/fedextrack/?trknbr=${encoded}`;
+  }
+  if (/SMLM|SM /.test(carrierKey)) {
+    return `https://esvc.smlines.com/smline/CUP_HOM_3301GS.do?_search=false&f_cmd=121&page=1&rows=10000&search_name=${encoded}&search_type=C&sidx=&sord=asc`;
+  }
+  if (/HDMU|(^| )HMM( |$)/.test(carrierKey)) {
+    return "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do";
+  }
+  if (/MAEU|MAERSK| MRSU| MSKU/.test(`${carrierKey} ${upperContainer}`)) {
+    return `https://www.maersk.com/tracking/${encoded}`;
+  }
+  if (/KORP|KMTC| KMTU/.test(`${carrierKey} ${upperContainer}`)) {
+    return "https://www.ekmtc.com/index.html";
+  }
+  if (/(^| )ONE( |$)|PUSM/.test(carrierKey)) {
+    return `https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking?ctrack-field=${encoded}&trakNoParam=${encoded}`;
+  }
+
+  return "";
 }
 
 function sourceClass(source) {
@@ -499,6 +569,10 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;")
     .replaceAll("\n", "<br>");
+}
+
+function escapeAttribute(value) {
+  return escapeHtml(value).replaceAll("`", "&#096;");
 }
 
 function startOfDay(date) {
