@@ -6,6 +6,7 @@
   <title>Logistics Live Dashboard</title>
   <meta name="description" content="Live inbound and outbound logistics dashboard powered by Google Sheets data." />
   <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./enhancements.css" />
 </head>
 <body>
   <div class="app-shell">
@@ -39,10 +40,30 @@
     </section>
 
     <section class="kpi-grid" aria-label="Dashboard metrics">
+      <article class="kpi-card kpi-card-emphasis">
+        <span class="kpi-label">YTD Shipping Cost</span>
+        <strong id="kpiYtdCost">—</strong>
+        <small>Includes completed and hidden shipments</small>
+      </article>
+      <article class="kpi-card kpi-card-emphasis">
+        <span class="kpi-label">MTD Shipping Cost</span>
+        <strong id="kpiMtdCost">—</strong>
+        <small>Current calendar month</small>
+      </article>
+      <article class="kpi-card">
+        <span class="kpi-label">YTD Shipments</span>
+        <strong id="kpiYtdShipments">—</strong>
+        <small>Current-year outbound shipments</small>
+      </article>
+      <article class="kpi-card">
+        <span class="kpi-label">Average Cost / Shipment</span>
+        <strong id="kpiAvgCost">—</strong>
+        <small>YTD shipping cost average</small>
+      </article>
       <article class="kpi-card">
         <span class="kpi-label">Outbound Shipments</span>
         <strong id="kpiOutbound">—</strong>
-        <small id="kpiOutboundSub">All visible rows</small>
+        <small id="kpiOutboundSub">All available rows</small>
       </article>
       <article class="kpi-card">
         <span class="kpi-label">Outbound Shipped</span>
@@ -65,9 +86,9 @@
         <small>UPS/FedEx/DHL/USPS + Air</small>
       </article>
       <article class="kpi-card">
-        <span class="kpi-label">Estimated Outbound Cost</span>
+        <span class="kpi-label">Visible Outbound Rate Total</span>
         <strong id="kpiRate">—</strong>
-        <small>Numeric RATE rows only</small>
+        <small>Currently loaded outbound rows</small>
       </article>
     </section>
 
@@ -168,5 +189,6 @@
 
   <script src="./app.js"></script>
   <script src="./tracking-links.js"></script>
+  <script src="./kpi-sync.js"></script>
 </body>
 </html>
