@@ -443,3 +443,8 @@ tbody tr:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* Remove the retired source-mix panel even when older cached HTML is served. */
+.panel:has(#sourceLegend) {
+  display: none !important;
+}
