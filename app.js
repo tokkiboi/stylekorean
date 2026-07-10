@@ -251,6 +251,7 @@ function renderSourceLegend() {
   });
 
   const legend = $("sourceLegend");
+  if (!legend) return;
   legend.innerHTML = "";
   Object.entries(counts)
     .sort((a, b) => b[1] - a[1])
