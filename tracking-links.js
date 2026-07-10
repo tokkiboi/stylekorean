@@ -109,7 +109,7 @@
     }
 
     if (prefix === "HMMU" || hasWord(context, "HMM") || context.includes("HDMU") || context.includes("HYUNDAI MERCHANT MARINE")) {
-      return "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do";
+      return `https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do?searchType=cntr&searchNo=${encoded}`;
     }
 
     if (["MAEU", "MSKU", "MRSU"].includes(prefix) || context.includes("MAERSK")) {
