@@ -49,6 +49,7 @@ refreshAll = async function refreshAllFromSourceWorksheets() {
     renderKPIs();
     renderSourceLegend();
     renderTimeline();
+    renderOutboundTimeline();
     renderImportSchedule();
     renderOutbound();
     renderInbound();
