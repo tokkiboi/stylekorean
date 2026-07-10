@@ -3,11 +3,11 @@
    operational source worksheets in the browser. */
 
 const DIRECT_OUTBOUND_SOURCES = {
-  wh: { name: "WH Trucking Request", range: "A2:T815", source: "WH TRUCKING" },
-  b2b: { name: "B2B/E-COM TRUCKING", range: "A1:Q853", source: "B2B/E-COM" },
-  transfers: { name: "TRANSFERS", range: "A1:L974", source: "TRANSFERS" },
-  ulta: { name: "ULTA", range: "A1:M1012", source: "ULTA" },
-  iherb: { name: "IHERB", range: "A1:L967", source: "IHERB" }
+  wh: { name: "WH Trucking Request", range: "A2:U815", source: "WH TRUCKING" },
+  b2b: { name: "B2B/E-COM TRUCKING", range: "A1:R853", source: "B2B/E-COM" },
+  transfers: { name: "TRANSFERS", range: "A1:M974", source: "TRANSFERS" },
+  ulta: { name: "ULTA", range: "A1:N1012", source: "ULTA" },
+  iherb: { name: "IHERB", range: "A1:M967", source: "IHERB" }
 };
 
 refreshAll = async function refreshAllFromSourceWorksheets() {
@@ -36,6 +36,7 @@ refreshAll = async function refreshAllFromSourceWorksheets() {
     ]
       .map(row => applyStatusOverlay(row, statusLookup))
       .filter(isMeaningfulOutboundRow)
+      .filter(isOngoingOutboundRow)
       .sort(compareOutboundRows);
 
     inboundRows = inbound
@@ -81,7 +82,8 @@ function mapWhRows(rows) {
       carrier: row["CARRIER"],
       rate: row["RATE"],
       pro: row["PRO#"],
-      note: row["NOTE"]
+      note: row["NOTE"],
+      status: row["STATUS"]
     }));
 }
 
@@ -98,7 +100,8 @@ function mapB2bRows(rows) {
       carrier: row["TRUCKING"],
       rate: row["RATE"],
       pro: row["PRO#"],
-      note: joinNotes(`FROM: ${clean(row["FROM"])}`, row["REMARKS"])
+      note: joinNotes(`FROM: ${clean(row["FROM"])}`, row["REMARKS"]),
+      status: row["STATUS"]
     }));
 }
 
@@ -118,7 +121,8 @@ function mapTransferRows(rows) {
         carrier: row["TRUCKING"],
         rate: row["RATE"],
         pro: row["BOL#"],
-        note: joinNotes(row["NOTE"], `FROM: ${from}`)
+        note: joinNotes(row["NOTE"], `FROM: ${from}`),
+        status: row["STATUS"]
       });
     });
 }
@@ -140,7 +144,8 @@ function mapUltaRows(rows) {
       carrier: row["TRUCKING"],
       rate: row["RATE"],
       pro: row["PRO#"],
-      note: joinNotes(`INVOICE: ${clean(row["Invoice"])}`, row["NOTE"])
+      note: joinNotes(`INVOICE: ${clean(row["Invoice"])}`, row["NOTE"]),
+      status: row["STATUS"]
     }));
 }
 
@@ -157,7 +162,8 @@ function mapIherbRows(rows) {
       carrier: row["TRUCKING"],
       rate: row["RATE"],
       pro: row["BOL"],
-      note: joinNotes(`APPT#: ${clean(row["APPT #"])}`, `DELIVERY: ${clean(row["DELIVERY APPT"])}`, `INVOICE: ${clean(row["INVOICE"])}`)
+      note: joinNotes(`APPT#: ${clean(row["APPT #"])}`, `DELIVERY: ${clean(row["DELIVERY APPT"])}`, `INVOICE: ${clean(row["INVOICE"])}`),
+      status: row["STATUS"]
     }));
 }
 
@@ -203,11 +209,12 @@ function buildStatusLookup(rows) {
 }
 
 function applyStatusOverlay(row, maps) {
+  const sourceStatus = clean(row["STATUS"]);
   const exact = maps.exact.get(statusKey(row));
   const byPro = row["PRO#"] && maps.pro.get(`${norm(row["SOURCE"])}|${norm(row["PRO#"])}`);
   const byInvoice = row["INVOICE NO."] && maps.invoice.get(`${norm(row["SOURCE"])}|${norm(row["INVOICE NO."])}`);
   const byCustomerDate = maps.customerDate.get(`${norm(row["SOURCE"])}|${norm(row["CUSTOMER"])}|${dateKey(row["SHIP DATE"])}`);
-  row["STATUS"] = exact || byPro || byInvoice || byCustomerDate || row["STATUS"] || "";
+  row["STATUS"] = sourceStatus || exact || byPro || byInvoice || byCustomerDate || "";
   return row;
 }
 
@@ -219,6 +226,10 @@ function statusKey(row) {
 
 function isMeaningfulOutboundRow(row) {
   return Boolean(row["SOURCE"] && (row["CUSTOMER"] || row["INVOICE NO."] || row["PRO#"] || row["SHIP DATE"]));
+}
+
+function isOngoingOutboundRow(row) {
+  return !/\b(SHIPPED|DELIVERED|RECEIVED|COMPLETED)\b/.test(norm(row["STATUS"]));
 }
 
 function compareOutboundRows(a, b) {
