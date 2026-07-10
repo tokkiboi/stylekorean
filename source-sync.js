@@ -41,7 +41,8 @@ refreshAll = async function refreshAllFromSourceWorksheets() {
 
     inboundRows = inbound
       .filter(isInboundDataRow)
-      .map(normalizeInboundRow);
+      .map(normalizeInboundRow)
+      .filter(isOngoingInboundRow);
     importScheduleRows = importSchedule.filter(row => hasAnyValue(row) && !containsSheetError(row));
 
     populateFilters();
@@ -226,6 +227,10 @@ function statusKey(row) {
 
 function isMeaningfulOutboundRow(row) {
   return Boolean(row["SOURCE"] && (row["CUSTOMER"] || row["INVOICE NO."] || row["PRO#"] || row["SHIP DATE"]));
+}
+
+function isOngoingInboundRow(row) {
+  return !/\b(DELIVERED|COMPLETED|RECEIVED)\b/.test(norm(row["Inbound Status"]));
 }
 
 function isOngoingOutboundRow(row) {
