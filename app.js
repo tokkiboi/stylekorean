@@ -6,6 +6,7 @@
 const CONFIG = {
   spreadsheetId: "1M-vZ24Yw4ZN7R7b_473cVn8kny8DznTakSsD3VQsCzc",
   sheetUrl: "https://docs.google.com/spreadsheets/d/1M-vZ24Yw4ZN7R7b_473cVn8kny8DznTakSsD3VQsCzc",
+  autoRefreshInterval: 5 * 60 * 1000, // 5 minutes
   sheets: {
     outbound: {
       name: "All Outbound Shipping Schedule",
@@ -60,17 +61,31 @@ const INBOUND_COLUMNS = [
 let outboundRows = [];
 let inboundRows = [];
 let importScheduleRows = [];
+let taskRows = [];
+
+let autoRefreshEnabled = true;
+let autoRefreshTimer = null;
+let nextRefreshTime = null;
 
 const $ = (id) => document.getElementById(id);
 
 document.addEventListener("DOMContentLoaded", () => {
   $("sheetLink").href = CONFIG.sheetUrl;
   wireEvents();
+  loadTasksFromStorage();
   refreshAll();
 });
 
 function wireEvents() {
   $("refreshBtn").addEventListener("click", refreshAll);
+  $("autoRefreshCheckbox").addEventListener("change", (e) => {
+    autoRefreshEnabled = e.target.checked;
+    if (autoRefreshEnabled) {
+      scheduleNextRefresh();
+    } else {
+      clearAutoRefresh();
+    }
+  });
   ["outboundSearch", "sourceFilter", "statusFilter"].forEach(id => {
     $(id).addEventListener("input", renderOutbound);
     $(id).addEventListener("change", renderOutbound);
@@ -78,6 +93,10 @@ function wireEvents() {
   ["inboundSearch", "carrierTypeFilter", "inboundStatusFilter"].forEach(id => {
     $(id).addEventListener("input", renderInbound);
     $(id).addEventListener("change", renderInbound);
+  });
+  ["taskSearch", "taskStatusFilter"].forEach(id => {
+    $(id).addEventListener("input", renderTasks);
+    $(id).addEventListener("change", renderTasks);
   });
 }
 
@@ -96,6 +115,8 @@ async function refreshAll() {
       .map(normalizeInboundRow);
     importScheduleRows = importSchedule.filter(row => hasAnyValue(row) && !containsSheetError(row));
 
+    updateTasksFromShipments();
+
     populateFilters();
     renderKPIs();
     renderSourceLegend();
@@ -103,15 +124,138 @@ async function refreshAll() {
     renderImportSchedule();
     renderOutbound();
     renderInbound();
+    renderTasks();
 
-    $("lastUpdated").textContent = `Last updated: ${new Date().toLocaleString()}`;
+    const now = new Date();
+    $("lastUpdated").textContent = `Last updated: ${now.toLocaleString()}`;
     $("setupNotice").classList.add("hidden");
     setConnection("good", "Live data loaded from Google Sheets.");
+
+    scheduleNextRefresh();
   } catch (error) {
     console.error(error);
     $("setupNotice").classList.remove("hidden");
     setConnection("bad", "Could not load live sheet data. Check public sharing / Publish to web settings.");
+    scheduleNextRefresh();
   }
+}
+
+function scheduleNextRefresh() {
+  clearAutoRefresh();
+  if (!autoRefreshEnabled) return;
+
+  const now = new Date();
+  nextRefreshTime = new Date(now.getTime() + CONFIG.autoRefreshInterval);
+  updateRefreshTimer();
+
+  autoRefreshTimer = setInterval(() => {
+    if (autoRefreshEnabled) {
+      refreshAll();
+    }
+  }, CONFIG.autoRefreshInterval);
+}
+
+function clearAutoRefresh() {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
+}
+
+function updateRefreshTimer() {
+  const timer = setInterval(() => {
+    if (!nextRefreshTime) {
+      clearInterval(timer);
+      return;
+    }
+    const now = new Date();
+    const diff = nextRefreshTime - now;
+    if (diff <= 0) {
+      $("nextRefresh").textContent = "Next refresh: —";
+      clearInterval(timer);
+    } else {
+      const mins = Math.floor(diff / 60000);
+      const secs = Math.floor((diff % 60000) / 1000);
+      $("nextRefresh").textContent = `Next refresh: ${mins}:${String(secs).padStart(2, "0")}`;
+    }
+  }, 1000);
+}
+
+function updateTasksFromShipments() {
+  const now = new Date();
+  const tasks = [];
+
+  outboundRows.forEach(row => {
+    const status = norm(row["STATUS"] || "");
+    const source = row["SOURCE"] || "Other";
+    const customer = row["CUSTOMER"] || "Unknown";
+    const invoice = row["INVOICE NO."] || "";
+    const shipDate = row["SHIP DATE"] || "";
+    let taskStatus = "completed";
+    if (status.includes("PENDING") || status === "") {
+      taskStatus = "pending";
+    } else if (status.includes("READY")) {
+      taskStatus = "in_progress";
+    } else if (status.includes("DELAY") || status.includes("HOLD")) {
+      taskStatus = "blocked";
+    }
+
+    tasks.push({
+      id: `OUT-${invoice || "PENDING"}`,
+      type: "Outbound Shipment",
+      source,
+      customer,
+      status: taskStatus,
+      description: `${customer} - ${invoice}`,
+      dueDate: shipDate,
+      carrier: row["CARRIER"] || "TBD",
+      reference: invoice
+    });
+  });
+
+  inboundRows.forEach(row => {
+    const status = norm(row["Inbound Status"] || "");
+    const shipment = row["Shipment #"] || row["Container"] || "Unknown";
+    const eta = row["ETA"] || "";
+    let taskStatus = "completed";
+    if (status === "" || status.includes("PENDING") || status.includes("CUSTOMS")) {
+      taskStatus = "pending";
+    } else if (status.includes("IN TRANSIT") || status.includes("ARRIVED")) {
+      taskStatus = "in_progress";
+    } else if (status.includes("DELAY") || status.includes("HOLD")) {
+      taskStatus = "blocked";
+    }
+
+    tasks.push({
+      id: `IN-${shipment}`,
+      type: "Inbound Shipment",
+      carrier: row["Carrier Type"] || "Other",
+      customer: shipment,
+      status: taskStatus,
+      description: `${shipment} - ${row["Carrier Type"] || "Other"}`,
+      dueDate: eta,
+      reference: shipment
+    });
+  });
+
+  taskRows = tasks;
+  saveTasksToStorage();
+}
+
+function loadTasksFromStorage() {
+  const stored = localStorage.getItem("dashboard_tasks");
+  if (stored) {
+    try {
+      taskRows = JSON.parse(stored);
+    } catch (e) {
+      console.error("Failed to load tasks from storage:", e);
+      taskRows = [];
+    }
+  }
+}
+
+function saveTasksToStorage() {
+  localStorage.setItem("dashboard_tasks", JSON.stringify(taskRows));
 }
 
 async function fetchSheet(sheetName, range) {
@@ -607,4 +751,60 @@ function parseSheetDate(value) {
 
   const d = new Date(text);
   return Number.isNaN(d.getTime()) ? null : startOfDay(d);
+}
+
+function renderTasks() {
+  const q = norm($("taskSearch").value);
+  const statusFilter = $("taskStatusFilter").value;
+
+  const filtered = taskRows.filter(task => {
+    const matchesQ = !q || norm(`${task.id} ${task.description} ${task.customer} ${task.type}`).includes(q);
+    const matchesStatus = !statusFilter || task.status === statusFilter;
+    return matchesQ && matchesStatus;
+  });
+
+  $("taskCount").textContent = `${filtered.length.toLocaleString()} tasks`;
+
+  const table = $("taskTable");
+  const thead = table.querySelector("thead");
+  const tbody = table.querySelector("tbody");
+
+  const columns = ["Task ID", "Type", "Customer", "Status", "Due Date", "Reference"];
+  thead.innerHTML = `<tr>${columns.map(col => `<th>${escapeHtml(col)}</th>`).join("")}</tr>`;
+  tbody.innerHTML = "";
+
+  filtered.slice(0, 1000).forEach(task => {
+    const tr = document.createElement("tr");
+
+    const cells = [
+      task.id,
+      task.type,
+      task.customer,
+      task.status,
+      task.dueDate || "—",
+      task.reference || "—"
+    ];
+
+    cells.forEach((cell, index) => {
+      const td = document.createElement("td");
+      if (index === 3) { // Status column
+        td.innerHTML = statusPill(task.status);
+      } else {
+        td.textContent = String(cell || "");
+      }
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+  });
+
+  if (filtered.length > 1000) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = columns.length;
+    td.className = "cell-muted";
+    td.textContent = `Showing first 1,000 of ${filtered.length.toLocaleString()} tasks. Refine the search to see more.`;
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+  }
 }

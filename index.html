@@ -35,7 +35,14 @@
         <span class="status-dot" id="connectionDot"></span>
         <span id="connectionText">Waiting to load data…</span>
       </div>
-      <div id="lastUpdated">Last updated: —</div>
+      <div class="status-info">
+        <div id="lastUpdated">Last updated: —</div>
+        <div id="nextRefresh" class="refresh-timer">Next refresh: —</div>
+      </div>
+      <label class="auto-refresh-toggle">
+        <input id="autoRefreshCheckbox" type="checkbox" checked />
+        <span>Auto-refresh every 5 min</span>
+      </label>
     </section>
 
     <section class="kpi-grid" aria-label="Dashboard metrics">
@@ -158,7 +165,33 @@
           </table>
         </div>
       </section>
-    </main>
+
+      <section class="panel table-panel">
+        <div class="panel-header">
+          <div>
+            <h2>Configured Tasks</h2>
+            <p>Auto-tracked shipment and logistics tasks</p>
+          </div>
+          <span id="taskCount" class="count-pill">— tasks</span>
+        </div>
+
+        <div class="task-controls">
+          <input id="taskSearch" type="search" placeholder="Search task name, ID, description…" />
+          <select id="taskStatusFilter">
+            <option value="">All statuses</option>
+            <option value="pending">Pending</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="blocked">Blocked</option>
+          </select>
+        </div>
+
+        <div class="table-wrap">
+          <table id="taskTable">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
 
     <footer class="footer">
       <span>Live Google Sheets dashboard</span>

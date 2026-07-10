@@ -134,6 +134,34 @@ h1 {
   margin: 18px 0;
   color: var(--muted);
   font-size: 0.92rem;
+  align-items: center;
+}
+
+.status-info {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.refresh-timer {
+  font-size: 0.86rem;
+  color: var(--blue);
+  font-weight: 600;
+}
+
+.auto-refresh-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 600;
+  color: #0f5f8f;
+}
+
+.auto-refresh-toggle input {
+  width: auto;
+  cursor: pointer;
 }
 
 .status-dot {
@@ -306,6 +334,13 @@ h1 {
   margin-bottom: 14px;
 }
 
+.task-controls {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 200px;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
 input, select {
   width: 100%;
   border: 1px solid var(--line);
@@ -415,6 +450,11 @@ tbody tr:hover {
     align-items: flex-start;
   }
 
+  .status-info {
+    flex-direction: column;
+    gap: 8px;
+  }
+
   .kpi-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -423,7 +463,7 @@ tbody tr:hover {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .filters {
+  .filters, .task-controls {
     grid-template-columns: 1fr;
   }
 }
