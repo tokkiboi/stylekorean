@@ -100,6 +100,7 @@ async function refreshAll() {
     renderKPIs();
     renderSourceLegend();
     renderTimeline();
+    renderOutboundTimeline();
     renderImportSchedule();
     renderOutbound();
     renderInbound();
@@ -304,6 +305,60 @@ function renderTimeline() {
         list.appendChild(li);
       }
     }
+    card.appendChild(list);
+    timeline.appendChild(card);
+  });
+}
+
+function renderOutboundTimeline() {
+  const timeline = $("outboundTimeline");
+  if (!timeline) return;
+
+  timeline.innerHTML = "";
+
+  const start = startOfDay(new Date());
+  const days = Array.from({ length: 14 }, (_, i) => addDays(start, i));
+
+  days.forEach(day => {
+    const matches = outboundRows
+      .filter(row => {
+        if (/\b(SHIPPED|DELIVERED|RECEIVED|COMPLETED)\b/.test(norm(row["STATUS"]))) return false;
+        const shipDate = parseSheetDate(row["SHIP DATE"]);
+        return shipDate && isSameDay(shipDate, day);
+      })
+      .sort((a, b) => norm(a["CUSTOMER"]).localeCompare(norm(b["CUSTOMER"])));
+
+    const card = document.createElement("article");
+    card.className = "day-card outbound-day-card";
+    const label = day.toLocaleDateString(undefined, { weekday: "short", month: "numeric", day: "numeric" });
+    card.innerHTML = `<strong>${label}</strong>`;
+
+    const list = document.createElement("ul");
+    if (!matches.length) {
+      const li = document.createElement("li");
+      li.className = "cell-muted";
+      li.textContent = "No shipment";
+      list.appendChild(li);
+    } else {
+      matches.slice(0, 8).forEach(row => {
+        const li = document.createElement("li");
+        const source = row["SOURCE"] || "Other";
+        const item = row["CUSTOMER"] || row["INVOICE NO."] || row["PRO#"] || "Shipment";
+        const detail = row["INVOICE NO."] && row["INVOICE NO."] !== item
+          ? row["INVOICE NO."]
+          : (row["PRO#"] && row["PRO#"] !== item ? row["PRO#"] : "");
+        li.innerHTML = `<span class="type-pill ${sourceClass(source)}">${escapeHtml(source)}</span><br>${escapeHtml(item)}${detail ? `<br><span class="cell-muted">${escapeHtml(detail)}</span>` : ""}`;
+        list.appendChild(li);
+      });
+
+      if (matches.length > 8) {
+        const li = document.createElement("li");
+        li.className = "cell-muted";
+        li.textContent = `+${matches.length - 8} more`;
+        list.appendChild(li);
+      }
+    }
+
     card.appendChild(list);
     timeline.appendChild(card);
   });
