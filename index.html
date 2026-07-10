@@ -8,8 +8,8 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <link rel="stylesheet" href="./styles.css?v=20260710-5" />
-  <link rel="stylesheet" href="./enhancements.css?v=20260710-5" />
+  <link rel="stylesheet" href="./styles.css?v=20260710-6" />
+  <link rel="stylesheet" href="./enhancements.css?v=20260710-6" />
 </head>
 <body>
   <div class="app-shell">
@@ -18,9 +18,8 @@
         <p class="eyebrow">LOGISTICS MASTER 2026</p>
         <h1>Live Shipping Dashboard</h1>
         <p class="hero-subtitle">
-          Public web dashboard linked directly to <strong>WH Trucking Request</strong>,
-          <strong>B2B/E-COM TRUCKING</strong>, <strong>TRANSFERS</strong>, <strong>ULTA</strong>,
-          <strong>IHERB</strong>, and <strong>INBOUND SHIPMENTS DATA</strong>.
+          Public web dashboard linked to <strong>All Outbound Shipping Schedule</strong> and
+          <strong>INBOUND SHIPMENTS DATA</strong>.
         </p>
       </div>
       <div class="hero-actions">
@@ -67,7 +66,7 @@
       <article class="kpi-card">
         <span class="kpi-label">Outbound Shipments</span>
         <strong id="kpiOutbound">—</strong>
-        <small id="kpiOutboundSub">All source worksheet rows</small>
+        <small id="kpiOutboundSub">All available rows</small>
       </article>
       <article class="kpi-card">
         <span class="kpi-label">Outbound Shipped</span>
@@ -92,7 +91,7 @@
       <article class="kpi-card">
         <span class="kpi-label">Visible Outbound Rate Total</span>
         <strong id="kpiRate">—</strong>
-        <small>All directly loaded source rows</small>
+        <small>Currently loaded outbound rows</small>
       </article>
     </section>
 
@@ -123,7 +122,7 @@
         <div class="panel-header">
           <div>
             <h2>Outbound Source Mix</h2>
-            <p>Pastel source colors match the five live outbound source worksheets.</p>
+            <p>Pastel source colors match the outbound schedule source categories.</p>
           </div>
           <span class="badge outbound">Outbound</span>
         </div>
@@ -134,7 +133,7 @@
         <div class="panel-header">
           <div>
             <h2>All Outbound Shipping Schedule</h2>
-            <p>Built live from WH Trucking Request, B2B/E-COM TRUCKING, TRANSFERS, ULTA, and IHERB. All matching entries are shown.</p>
+            <p>Live rows merged directly from WH Trucking Request, B2B/E-COM TRUCKING, TRANSFERS, ULTA, and IHERB.</p>
           </div>
           <span id="outboundCount" class="count-pill">— rows</span>
         </div>
@@ -187,14 +186,15 @@
 
     <footer class="footer">
       <span>Live Google Sheets dashboard</span>
-      <span>Build 2026.07.10.5 · Direct five-source outbound synchronization</span>
+      <span>Build 2026.07.10.6 · Ambiguous August dates assigned to 2025</span>
     </footer>
   </div>
 
-  <script src="./app.js?v=20260710-5"></script>
-  <script src="./source-sync.js?v=20260710-5"></script>
-  <script src="./all-rows-fix.js?v=20260710-5"></script>
-  <script src="./tracking-links.js?v=20260710-5"></script>
-  <script src="./kpi-sync.js?v=20260710-5"></script>
+  <script src="./app.js?v=20260710-6"></script>
+  <script src="./source-sync.js?v=20260710-6"></script>
+  <script src="./date-year-fix.js?v=20260710-6"></script>
+  <script src="./all-rows-fix.js?v=20260710-6"></script>
+  <script src="./tracking-links.js?v=20260710-6"></script>
+  <script src="./kpi-sync.js?v=20260710-6"></script>
 </body>
 </html>
