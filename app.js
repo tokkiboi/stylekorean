@@ -252,7 +252,8 @@ function renderSourceLegend() {
 
   const legend = $("sourceLegend");
   if (!legend) return;
-  legend.innerHTML = "";
+  legend.closest(".panel")?.remove();
+  return;
   Object.entries(counts)
     .sort((a, b) => b[1] - a[1])
     .forEach(([source, count]) => {
