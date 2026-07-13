@@ -98,13 +98,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .sync-bar > div { display: flex; align-items: center; gap: 8px; }
 .sync-dot { width: 10px; height: 10px; border-radius: 50%; background: #f5b23e; box-shadow: 0 0 0 6px rgba(245,178,62,.14); }
 
-.metrics { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; }
+.metrics { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 14px; }
 .metric-card { min-height: 148px; padding: 23px 22px; border: 1px solid rgba(206,220,225,.9); border-radius: 22px; background: rgba(255,255,255,.9); box-shadow: var(--shadow); display: flex; flex-direction: column; }
 .metric-card span { min-height: 28px; color: #60727c; font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
 .metric-card strong { margin: 10px 0 8px; font-size: 31px; letter-spacing: -.035em; line-height: 1; }
 .metric-card small { margin-top: auto; color: #7d8c94; }
 .accent-card { background: linear-gradient(148deg, #fff9e9 0%, white 72%); border-color: #f1dfb6; }
 .accent-card strong { color: #ad6c00; }
+.ytd-card { background: linear-gradient(148deg, #eef9f5 0%, white 72%); border-color: #c9e5d9; }
+.ytd-card strong { color: #24765f; }
 
 .panel { margin-top: 18px; border: 1px solid rgba(206,220,225,.92); border-radius: 24px; background: rgba(255,255,255,.94); box-shadow: var(--shadow); overflow: hidden; }
 .panel-heading { padding: 25px 28px 18px; display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; }
