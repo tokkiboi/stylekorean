@@ -160,6 +160,16 @@ td small { display: block; margin-top: 5px; color: #829097; white-space: nowrap;
 .source-wholesale { background: #f0ebff; color: #66519a; }
 .source-korheim-arcadia { background: #fff0e1; color: #94602a; }
 .source-customer-entry { background: #e8f7ec; color: #35704a; }
+.source-transfers { background: #e8f4ff; color: #245f8f; }
+.source-ulta { background: #fdebf3; color: #8a4362; }
+.source-iherb { background: #eaf8ed; color: #347049; }
+.source-b2b-e-com-trucking { background: #f2ecff; color: #67529b; }
+.source-wh-trucking-request { background: #fff0df; color: #8c5a2c; }
+.row-source-transfers td { background: #f5faff; }
+.row-source-ulta td { background: #fff7fa; }
+.row-source-iherb td { background: #f6fcf7; }
+.row-source-b2b-e-com-trucking td { background: #faf8ff; }
+.row-source-wh-trucking-request td { background: #fffaf4; }
 .mode-ocean { background: #e6f4fb; color: #196684; }
 .mode-air { background: #f2edff; color: #694ca0; }
 .container-link { display: inline-flex; align-items: center; gap: 7px; min-height: 32px; padding: 0 10px; border: 1px solid #bad9db; border-radius: 9px; background: #eef9f8; color: #0a737a; font-weight: 900; text-decoration: none; white-space: nowrap; transition: transform .15s ease, background .15s ease, border-color .15s ease; }
