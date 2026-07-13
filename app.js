@@ -14,6 +14,10 @@ const CONFIG = {
     inbound: {
       name: "INBOUND SHIPMENTS DATA",
       range: "A3:Q1200"
+    },
+    importSchedule: {
+      name: "INBOUND SHIPMENTS DATA",
+      range: "U238:AI260"
     }
   }
 };
@@ -55,6 +59,7 @@ const INBOUND_COLUMNS = [
 
 let outboundRows = [];
 let inboundRows = [];
+let importScheduleRows = [];
 
 const $ = (id) => document.getElementById(id);
 
@@ -79,22 +84,24 @@ function wireEvents() {
 async function refreshAll() {
   setConnection("loading", "Loading live Google Sheets data…");
   try {
-    const [outbound, inbound] = await Promise.all([
+    const [outbound, inbound, importSchedule] = await Promise.all([
       fetchSheet(CONFIG.sheets.outbound.name, CONFIG.sheets.outbound.range),
-      fetchSheet(CONFIG.sheets.inbound.name, CONFIG.sheets.inbound.range)
+      fetchSheet(CONFIG.sheets.inbound.name, CONFIG.sheets.inbound.range),
+      fetchSheet(CONFIG.sheets.importSchedule.name, CONFIG.sheets.importSchedule.range)
     ]);
 
     outboundRows = outbound.filter(row => hasAnyValue(row) && row["SOURCE"] && row["SOURCE"] !== "SOURCE");
-    inboundRows = inbound.filter(row => {
-      const type = row["Carrier Type"] || "";
-      const shipment = row["Shipment #"] || "";
-      return hasAnyValue(row) && shipment && type !== "Schedule" && shipment !== "Two-Week ETA Schedule";
-    });
+    inboundRows = inbound
+      .filter(isInboundDataRow)
+      .map(normalizeInboundRow);
+    importScheduleRows = importSchedule.filter(row => hasAnyValue(row) && !containsSheetError(row));
 
     populateFilters();
     renderKPIs();
     renderSourceLegend();
     renderTimeline();
+    renderOutboundTimeline();
+    renderImportSchedule();
     renderOutbound();
     renderInbound();
 
@@ -153,6 +160,42 @@ function hasAnyValue(row) {
   return Object.values(row).some(v => String(v || "").trim() !== "");
 }
 
+function isInboundDataRow(row) {
+  if (!hasAnyValue(row)) return false;
+  if (containsSheetError(row)) return false;
+
+  const type = norm(row["Carrier Type"]);
+  const shipment = norm(row["Shipment #"]);
+
+  if (type === "CARRIER TYPE" || shipment === "SHIPMENT #") return false;
+  if (type === "SCHEDULE" || shipment.includes("TWO-WEEK ETA SCHEDULE")) return false;
+
+  return [
+    "Shipment #",
+    "Invoice",
+    "MBL",
+    "HBL",
+    "Container",
+    "ETA",
+    "LFD",
+    "Delivery Expected",
+    "Reserved / Broker",
+    "Inbound Status"
+  ].some(col => String(row[col] || "").trim() !== "");
+}
+
+function containsSheetError(row) {
+  return Object.values(row).some(value => /^#(REF|VALUE|N\/A|ERROR|DIV\/0|NAME|NUM)!?$/i.test(String(value || "").trim()));
+}
+
+function normalizeInboundRow(row) {
+  const next = { ...row };
+  if (!next["Shipment #"]) {
+    next["Shipment #"] = next["Container"] || next["HBL"] || next["MBL"] || next["Invoice"] || "";
+  }
+  return next;
+}
+
 function setConnection(kind, text) {
   const dot = $("connectionDot");
   dot.className = "status-dot";
@@ -208,7 +251,9 @@ function renderSourceLegend() {
   });
 
   const legend = $("sourceLegend");
-  legend.innerHTML = "";
+  if (!legend) return;
+  legend.closest(".panel")?.remove();
+  return;
   Object.entries(counts)
     .sort((a, b) => b[1] - a[1])
     .forEach(([source, count]) => {
@@ -248,8 +293,11 @@ function renderTimeline() {
     } else {
       matches.slice(0, 8).forEach(row => {
         const li = document.createElement("li");
-        const item = row["Container"] || row["Shipment #"] || row["HBL"] || row["MBL"] || "Shipment";
-        li.innerHTML = `<span class="type-pill ${typeClass(row["Carrier Type"])}">${escapeHtml(row["Carrier Type"] || "Other")}</span><br>${escapeHtml(item)}`;
+        const item = row["Container"] || row["Shipment #"] || row["HBL"] || row["MBL"] || row["Invoice"] || "Shipment";
+        const itemHtml = row["Container"]
+          ? formatTrackingLinks(row["Container"], row)
+          : escapeHtml(item);
+        li.innerHTML = `<span class="type-pill ${typeClass(row["Carrier Type"])}">${escapeHtml(row["Carrier Type"] || "Other")}</span><br>${itemHtml}`;
         list.appendChild(li);
       });
       if (matches.length > 8) {
@@ -262,6 +310,128 @@ function renderTimeline() {
     card.appendChild(list);
     timeline.appendChild(card);
   });
+}
+
+function renderOutboundTimeline() {
+  const timeline = $("outboundTimeline");
+  if (!timeline) return;
+
+  timeline.innerHTML = "";
+
+  const start = startOfDay(new Date());
+  const days = Array.from({ length: 14 }, (_, i) => addDays(start, i));
+
+  days.forEach(day => {
+    const matches = outboundRows
+      .filter(row => {
+        if (/\b(SHIPPED|DELIVERED|RECEIVED|COMPLETED)\b/.test(norm(row["STATUS"]))) return false;
+        const shipDate = parseSheetDate(row["SHIP DATE"]);
+        return shipDate && isSameDay(shipDate, day);
+      })
+      .sort((a, b) => norm(a["CUSTOMER"]).localeCompare(norm(b["CUSTOMER"])));
+
+    const card = document.createElement("article");
+    card.className = "day-card outbound-day-card";
+    const label = day.toLocaleDateString(undefined, { weekday: "short", month: "numeric", day: "numeric" });
+    card.innerHTML = `<strong>${label}</strong>`;
+
+    const list = document.createElement("ul");
+    if (!matches.length) {
+      const li = document.createElement("li");
+      li.className = "cell-muted";
+      li.textContent = "No shipment";
+      list.appendChild(li);
+    } else {
+      matches.slice(0, 8).forEach(row => {
+        const li = document.createElement("li");
+        const source = row["SOURCE"] || "Other";
+        const item = row["CUSTOMER"] || row["INVOICE NO."] || row["PRO#"] || "Shipment";
+        const detail = row["INVOICE NO."] && row["INVOICE NO."] !== item
+          ? row["INVOICE NO."]
+          : (row["PRO#"] && row["PRO#"] !== item ? row["PRO#"] : "");
+        li.innerHTML = `<span class="type-pill ${sourceClass(source)}">${escapeHtml(source)}</span><br>${escapeHtml(item)}${detail ? `<br><span class="cell-muted">${escapeHtml(detail)}</span>` : ""}`;
+        list.appendChild(li);
+      });
+
+      if (matches.length > 8) {
+        const li = document.createElement("li");
+        li.className = "cell-muted";
+        li.textContent = `+${matches.length - 8} more`;
+        list.appendChild(li);
+      }
+    }
+
+    card.appendChild(list);
+    timeline.appendChild(card);
+  });
+}
+
+function renderImportSchedule() {
+  const timeline = $("importScheduleTimeline");
+  if (!timeline) return;
+
+  const dayColumns = getImportScheduleDayColumns();
+  let totalItems = 0;
+  timeline.innerHTML = "";
+
+  dayColumns.forEach(day => {
+    const items = importScheduleRows
+      .flatMap(row => splitScheduleItems(row[day]))
+      .filter(Boolean);
+
+    totalItems += items.length;
+
+    const card = document.createElement("article");
+    card.className = "day-card import-day-card";
+    card.innerHTML = `<strong>${escapeHtml(day)}</strong>`;
+
+    const list = document.createElement("ul");
+    if (!items.length) {
+      const li = document.createElement("li");
+      li.className = "cell-muted";
+      li.textContent = "No imports";
+      list.appendChild(li);
+    } else {
+      items.slice(0, 8).forEach(value => {
+        const parsed = parseScheduleItem(value);
+        const li = document.createElement("li");
+        li.innerHTML = `<span class="type-pill ${typeClass(parsed.type)}">${escapeHtml(parsed.type)}</span><br>${escapeHtml(parsed.item)}`;
+        list.appendChild(li);
+      });
+      if (items.length > 8) {
+        const li = document.createElement("li");
+        li.className = "cell-muted";
+        li.textContent = `+${items.length - 8} more`;
+        list.appendChild(li);
+      }
+    }
+
+    card.appendChild(list);
+    timeline.appendChild(card);
+  });
+
+  $("importScheduleCount").textContent = `${totalItems.toLocaleString()} imports`;
+}
+
+function getImportScheduleDayColumns() {
+  const firstRow = importScheduleRows[0] || {};
+  return Object.keys(firstRow)
+    .filter(key => key && key !== "Schedule" && !/^Column\s+\d+$/i.test(key))
+    .slice(0, 14);
+}
+
+function splitScheduleItems(value) {
+  return String(value || "")
+    .split(/\n+/)
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+function parseScheduleItem(value) {
+  const clean = String(value || "").trim();
+  const match = clean.match(/^([^:]{2,20}):\s*(.*)$/);
+  if (!match) return { type: "Import", item: clean };
+  return { type: match[1].trim(), item: match[2].trim() || clean };
 }
 
 function renderOutbound() {
@@ -341,10 +511,77 @@ function decorateInboundCell(col, value, row) {
   if (col === "Carrier Type") {
     return `<span class="type-pill ${typeClass(value)}">${escapeHtml(value || "Other")}</span>`;
   }
+  if (col === "Container") {
+    return formatTrackingLinks(value, row);
+  }
   if (col === "Inbound Status") {
     return statusPill(value);
   }
   return escapeHtml(value);
+}
+
+function formatTrackingLinks(value, row) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+
+  return text
+    .split(/\n+/)
+    .map(item => item.trim())
+    .filter(Boolean)
+    .map(item => {
+      const url = getTrackingUrl(item, row);
+      if (!url) return escapeHtml(item);
+      return `<a class="tracking-link" href="${escapeAttribute(url)}" target="_blank" rel="noreferrer">${escapeHtml(item)}</a>`;
+    })
+    .join("<br>");
+}
+
+function getTrackingUrl(container, row) {
+  const cleanContainer = String(container || "").trim();
+  if (!cleanContainer) return "";
+
+  const upperContainer = cleanContainer.toUpperCase();
+  const carrierKey = [
+    row["Carrier Type"],
+    row["Shipment #"],
+    row["MBL"],
+    row["HBL"],
+    row["VSL"]
+  ].map(value => String(value || "")).join(" ").toUpperCase();
+  const upsMatch = cleanContainer.match(/\b1Z[A-Z0-9]+\b/i);
+  const uspsMatch = cleanContainer.match(/\b(?:94|92|93)\d{8,}\b/i);
+  const dhlMatch = cleanContainer.match(/\b(?:JJD[A-Z0-9]+|JD[A-Z0-9]+|DHL[A-Z0-9]+)\b/i);
+  const encoded = encodeURIComponent(cleanContainer);
+
+  if (/^1Z/.test(upperContainer) || upsMatch) {
+    return `https://www.ups.com/track?loc=en_US&tracknum=${encodeURIComponent(upsMatch?.[0] || cleanContainer)}`;
+  }
+  if (/^(94|92|93|USPS)/.test(upperContainer) || uspsMatch) {
+    return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(uspsMatch?.[0] || cleanContainer)}`;
+  }
+  if (/^(JD|JJD|DHL)/.test(upperContainer) || dhlMatch) {
+    return `https://www.dhl.com/us-en/home/tracking/tracking-express.html?submit=1&tracking-id=${encodeURIComponent(dhlMatch?.[0] || cleanContainer)}`;
+  }
+  if (/FEDEX|FDX/.test(carrierKey)) {
+    return `https://www.fedex.com/fedextrack/?trknbr=${encoded}`;
+  }
+  if (/SMLM|SM /.test(carrierKey)) {
+    return `https://esvc.smlines.com/smline/CUP_HOM_3301GS.do?_search=false&f_cmd=121&page=1&rows=10000&search_name=${encoded}&search_type=C&sidx=&sord=asc`;
+  }
+  if (/HDMU|(^| )HMM( |$)/.test(carrierKey)) {
+    return "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do";
+  }
+  if (/MAEU|MAERSK| MRSU| MSKU/.test(`${carrierKey} ${upperContainer}`)) {
+    return `https://www.maersk.com/tracking/${encoded}`;
+  }
+  if (/KORP|KMTC| KMTU/.test(`${carrierKey} ${upperContainer}`)) {
+    return "https://www.ekmtc.com/index.html";
+  }
+  if (/(^| )ONE( |$)|PUSM/.test(carrierKey)) {
+    return `https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking?ctrack-field=${encoded}&trakNoParam=${encoded}`;
+  }
+
+  return "";
 }
 
 function sourceClass(source) {
@@ -389,6 +626,10 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;")
     .replaceAll("\n", "<br>");
+}
+
+function escapeAttribute(value) {
+  return escapeHtml(value).replaceAll("`", "&#096;");
 }
 
 function startOfDay(date) {
