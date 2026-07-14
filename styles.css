@@ -151,7 +151,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .schedule-item span { margin-top: 2px; font-size: 9px; color: #56646b; }
 .schedule-outbound-fields { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 6px; }
 .schedule-outbound-fields span { margin: 0; font-size: 10px; color: #24373f; }
-.schedule-outbound-fields span:nth-child(2) { overflow: visible; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; }
+.outbound-eta-panel .schedule-grid { grid-template-columns: repeat(14, minmax(210px, 1fr)); min-width: 2940px; }
+.schedule-outbound-fields span:nth-child(2) { overflow: visible; text-overflow: clip; white-space: nowrap; overflow-wrap: normal; }
 .schedule-outbound-fields b { display: block; color: #66757b; font-size: 8px; letter-spacing: .04em; text-transform: uppercase; }
 .schedule-item > small { display: block; margin-top: 3px; overflow: hidden; color: #56646b; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .schedule-inbound-item { background: #fff928; }
