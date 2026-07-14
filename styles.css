@@ -178,6 +178,9 @@ tbody tr { transition: background .15s ease; }
 tbody tr:hover { background: #f8fbfb; }
 td strong { display: block; color: var(--ink); font-size: 13px; white-space: nowrap; }
 td small { display: block; margin-top: 5px; color: #829097; white-space: nowrap; }
+.outbound-table th:nth-child(3), .outbound-table td:nth-child(3) { width: 155px; max-width: 155px; padding-left: 10px; padding-right: 10px; }
+.outbound-table td:nth-child(3) strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; }
+.outbound-table td:nth-child(3) small { overflow-wrap: anywhere; font-size: 9px; line-height: 1.25; white-space: normal; }
 .date-cell, .money { font-weight: 800; white-space: nowrap; color: #344851; }
 .row-finished td { background: #f0f2f3; color: #8c979c; }
 .row-finished td strong { color: #6f7c82; }
