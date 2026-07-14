@@ -188,6 +188,7 @@ td small { display: block; margin-top: 5px; color: #829097; white-space: nowrap;
 .row-finished td { background: #f0f2f3; color: #8c979c; }
 .row-finished td strong { color: #6f7c82; }
 .row-finished:hover td { background: #eceff0; }
+.source-cell { display: flex; flex-wrap: wrap; gap: 4px; }
 .source-tag, .mode-tag { display: inline-flex; align-items: center; min-height: 28px; padding: 5px 9px; border-radius: 8px; font-size: 11px; font-weight: 800; white-space: nowrap; }
 .source-wh-trucking { background: #e9f5ff; color: #24628d; }
 .source-wholesale { background: #f0ebff; color: #66519a; }
