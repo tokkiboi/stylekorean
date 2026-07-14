@@ -159,6 +159,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .schedule-source-iherb { background: #eaf8ed; }
 .schedule-source-b2b-e-com-trucking { background: #f2ecff; }
 .schedule-source-wh-trucking-request { background: #fff0df; }
+.schedule-source-national-order-progress { background: #e8f7f4; }
 
 .filters { display: grid; grid-template-columns: minmax(300px, 1fr) 200px 200px; gap: 10px; padding: 0 28px 17px; }
 .filters.inbound-filters { grid-template-columns: minmax(300px, 1fr) 200px; }
@@ -195,11 +196,13 @@ td small { display: block; margin-top: 5px; color: #829097; white-space: nowrap;
 .source-iherb { background: #eaf8ed; color: #347049; }
 .source-b2b-e-com-trucking { background: #f2ecff; color: #67529b; }
 .source-wh-trucking-request { background: #fff0df; color: #8c5a2c; }
+.source-national-order-progress { background: #e8f7f4; color: #2f6f69; }
 .row-source-transfers td { background: #f5faff; }
 .row-source-ulta td { background: #fff7fa; }
 .row-source-iherb td { background: #f6fcf7; }
 .row-source-b2b-e-com-trucking td { background: #faf8ff; }
 .row-source-wh-trucking-request td { background: #fffaf4; }
+.row-source-national-order-progress td { background: #f4fbfa; }
 .mode-ocean { background: #e6f4fb; color: #196684; }
 .mode-air { background: #f2edff; color: #694ca0; }
 .container-link { display: inline-flex; align-items: center; gap: 7px; min-height: 32px; padding: 0 10px; border: 1px solid #bad9db; border-radius: 9px; background: #eef9f8; color: #0a737a; font-weight: 900; text-decoration: none; white-space: nowrap; transition: transform .15s ease, background .15s ease, border-color .15s ease; }
