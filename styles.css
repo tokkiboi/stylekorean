@@ -151,6 +151,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .schedule-item span { margin-top: 2px; font-size: 9px; color: #56646b; }
 .schedule-outbound-fields { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 6px; }
 .schedule-outbound-fields span { margin: 0; font-size: 10px; color: #24373f; }
+.schedule-outbound-fields span:nth-child(2) { overflow: visible; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; }
 .schedule-outbound-fields b { display: block; color: #66757b; font-size: 8px; letter-spacing: .04em; text-transform: uppercase; }
 .schedule-item > small { display: block; margin-top: 3px; overflow: hidden; color: #56646b; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .schedule-inbound-item { background: #fff928; }
@@ -205,6 +206,7 @@ td small { display: block; margin-top: 5px; color: #829097; white-space: nowrap;
 .row-source-national-order-progress td { background: #f4fbfa; }
 .mode-ocean { background: #e6f4fb; color: #196684; }
 .mode-air { background: #f2edff; color: #694ca0; }
+.mode-small-parcel { background: #f5edff; color: #6f4497; }
 .container-link { display: inline-flex; align-items: center; gap: 7px; min-height: 32px; padding: 0 10px; border: 1px solid #bad9db; border-radius: 9px; background: #eef9f8; color: #0a737a; font-weight: 900; text-decoration: none; white-space: nowrap; transition: transform .15s ease, background .15s ease, border-color .15s ease; }
 .container-link:hover { transform: translateY(-1px); background: #e0f4f2; border-color: #8fc6c8; }
 .container-link .icon { width: 14px; height: 14px; }
