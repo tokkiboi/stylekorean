@@ -216,7 +216,7 @@ td small { display: block; margin-top: 5px; color: #829097; white-space: nowrap;
 .status-select { min-width: 116px; height: 34px; padding: 0 28px 0 10px; border: 0; border-radius: 999px; font-size: 11px; font-weight: 900; cursor: pointer; }
 .status-scheduled { background: #fff4d7; color: #855d0b; }
 .status-shipping { background: #e1f0ff; color: #23608f; }
-.status-delivered, .status-received, .status-completed { background: #e4e8e9; color: #58666d; }
+.status-delivered, .status-received, .status-completed, .status-cancelled { background: #e4e8e9; color: #58666d; }
 .empty-state { padding: 35px; border-top: 1px solid #e3eaed; text-align: center; color: var(--muted); }
 
 .parcel-panel { padding-bottom: 27px; }
