@@ -1,4 +1,5 @@
 {
-    "continue.enableConsole": true,
-    "continue.enableQuickActions": true
+  "continue.enableConsole": true,
+  "continue.enableQuickActions": true,
+  "github.copilot.chat.agentDebugLog.fileLogging.enabled": true
 }
