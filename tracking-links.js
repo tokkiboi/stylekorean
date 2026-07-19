@@ -80,6 +80,17 @@
     return new RegExp(`(?:^|\\s)${word}(?:\\s|$)`).test(context);
   }
 
+  function getHmmTrackingBase() {
+    const configured =
+      typeof globalThis !== "undefined"
+        ? globalThis.HMM_TRACKING_SERVICE
+        : "";
+
+    return String(configured || "http://127.0.0.1:8787")
+      .trim()
+      .replace(/\/+$/, "");
+  }
+
   function getTrackingUrl(value, row) {
     const trackingId = extractTrackingId(value);
     if (!trackingId) return "";
@@ -109,7 +120,7 @@
     }
 
     if (prefix === "HMMU" || hasWord(context, "HMM") || context.includes("HDMU") || context.includes("HYUNDAI MERCHANT MARINE")) {
-      return `https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do?searchType=cntr&searchNo=${encoded}`;
+      return `${getHmmTrackingBase()}/track/${encoded}`;
     }
 
     if (["MAEU", "MSKU", "MRSU"].includes(prefix) || context.includes("MAERSK")) {
@@ -131,7 +142,6 @@
     return String(value || "")
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
   }
