@@ -35,7 +35,7 @@
           <span id="nextRefresh" class="refresh-timer">Next refresh: —</span>
           <label class="auto-refresh-toggle">
             <input id="autoRefresh" type="checkbox" checked>
-            <span>Auto-refresh every 5 min</span>
+            <span id="autoRefreshLabel">Auto-refresh every 5 min</span>
           </label>
         </div>
       </div>
@@ -177,7 +177,7 @@
           <label class="search-field">
             <input id="taskSearch" placeholder="Search task, shipment, customer or reference…" type="search">
           </label>
-          <select id="taskStatusFilter">
+          <select id="taskStatusFilter" aria-label="Filter tasks by status">
             <option value="">All task statuses</option>
             <option value="pending">Pending</option>
             <option value="in_progress">In progress</option>
@@ -198,6 +198,11 @@
             </thead>
             <tbody id="taskRows"></tbody>
           </table>
+        </div>
+        <div id="taskPagination" class="task-pagination" hidden aria-live="polite">
+          <button id="taskPrev" class="button button-light" type="button">Previous</button>
+          <span id="taskPageLabel">Page 1 of 1</span>
+          <button id="taskNext" class="button button-light" type="button">Next</button>
         </div>
       </section>
 

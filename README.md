@@ -22,19 +22,21 @@ Toggle auto-refresh on/off with the checkbox in the status bar. When enabled:
 **Configured Tasks Panel** displays auto-tracked shipment tasks derived from live sheet data:
 
 #### Task Types
-- **Outbound Shipments**: From "All Outbound Shipping Schedule" sheet
-- **Inbound Shipments**: From "INBOUND SHIPMENTS DATA" sheet
+- **Outbound Shipments**: Derived from the `TRANSFERS`, `ULTA`, `IHERB`, `B2B/E-COM TRUCKING`, `WH Trucking Request`, and `NATIONAL ORDER PROGRESS` source tabs
+- **Inbound Shipments**: Derived from the `IMPORTS` source tab; rows without a Shipping Date are excluded
+- **Import Schedule**: Displayed separately from `INBOUND SHIPMENTS DATA!U238:AI260`
 
 #### Task Status
 - **Pending**: Items pending action (no status, customs hold, etc.)
 - **In Progress**: Active shipments (ready to ship, in transit, arrived)
-- **Completed**: Delivered or shipped items
+- **Completed**: Delivered, received, completed, cancelled, or shipped items
 - **Blocked**: Delayed, held, or failed items
 
 #### Task Features
-- Search by task ID, customer, description
+- Search by task ID, customer, description, or reference
 - Filter by status
-- Persistent storage (browser localStorage)
+- Persistent storage (browser localStorage) after a complete source refresh
+- Paginated results when more than 1,000 tasks match the filters
 - Auto-updated on each data refresh
 
 ### KPI Dashboard
@@ -62,26 +64,32 @@ Toggle auto-refresh on/off with the checkbox in the status bar. When enabled:
    - Select sheets to publish
    - Copy the spreadsheet ID
 
-2. Update `CONFIG.spreadsheetId` in `app.js`:
+2. Update the `ID` constant in `app.js`:
    ```javascript
-   const CONFIG = {
-     spreadsheetId: "YOUR_SHEET_ID_HERE",
-     autoRefreshInterval: 5 * 60 * 1000, // 5 minutes
-     sheets: {
-       outbound: { name: "Sheet Name", range: "A3:W7000" },
-       inbound: { name: "Sheet Name", range: "A3:Q1200" },
-       importSchedule: { name: "Sheet Name", range: "U238:AI260" }
-     }
-   };
+   const ID = "YOUR_SHEET_ID_HERE";
+   const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
    ```
 
 ### Auto-Refresh Interval
-Modify `CONFIG.autoRefreshInterval` to change update frequency:
+Modify `AUTO_REFRESH_INTERVAL` to change update frequency:
 - Default: `5 * 60 * 1000` (5 minutes)
 - Examples:
   - `1 * 60 * 1000` = 1 minute
   - `15 * 60 * 1000` = 15 minutes
   - `30 * 60 * 1000` = 30 minutes
+
+`loadBase()` reads these source tabs and ranges:
+
+- `IMPORTS!A1:AD340`
+- `TRANSFERS!A1:N974`
+- `ULTA!A1:N1012`
+- `IHERB!A1:M967`
+- `B2B/E-COM TRUCKING!A1:R853`
+- `WH Trucking Request!A2:U1551`
+- `NATIONAL ORDER PROGRESS!A1:U2503`
+- `OUTBOUND WEBSITE EXCLUSIONS!A1:C500`
+
+`loadImportSchedule()` reads `INBOUND SHIPMENTS DATA!U238:AI260` for the separate import timeline.
 
 ## Data Persistence
 
@@ -92,18 +100,10 @@ localStorage.removeItem("dashboard_tasks");
 
 ## Sheet Structure Requirements
 
-### Outbound Sheet
-- Column A: SOURCE
-- Column B: CUSTOMER
-- Column C: INVOICE NO.
-- Must start at row 3
-
-### Inbound Sheet
-- Column A: Carrier Type
-- Column B: Shipment #
-- Column C: Invoice
-- Column M: Inbound Status
-- Must start at row 3
+- Keep the source tab names and ranges listed above in sync with `loadBase()` and `loadImportSchedule()`.
+- `IMPORTS` rows must include a Shipping Date plus an invoice, clean container, or air waybill identifier to appear in inbound shipments.
+- `IMPORTS` parcel sections use the carrier and tracking columns in the existing workbook layout; rows without a Shipping Date are excluded.
+- Outbound source tabs should retain their existing header labels because the loader maps fields by normalized header name.
 
 ## Browser Support
 - Modern browsers with ES6 support
@@ -114,12 +114,12 @@ localStorage.removeItem("dashboard_tasks");
 
 **"Could not load live sheet data"**
 - Ensure spreadsheet is published to the web
-- Verify sheet names and ranges in CONFIG
+- Verify the `ID`, source tab names, and ranges used by `loadBase()` and `loadImportSchedule()`
 - Check browser console for CORS errors
 
 **Tasks not updating**
 - Clear browser cache and reload
-- Verify `autoRefreshCheckbox` is enabled
+- Verify the `autoRefresh` checkbox is enabled
 - Check localStorage limit (5-10MB typical)
 
 **Auto-refresh not working**

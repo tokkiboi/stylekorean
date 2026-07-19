@@ -376,6 +376,20 @@ footer p { margin: 0; }
   color: #9b3d3d;
 }
 
+.task-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 0 28px 24px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.task-pagination .button {
+  padding: 8px 12px;
+}
+
 @media (max-width: 760px) {
   .sync-controls {
     justify-content: flex-start;
