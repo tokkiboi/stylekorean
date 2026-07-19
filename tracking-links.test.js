@@ -15,7 +15,7 @@ assert.deepEqual(splitTrackingItems("SMCU1284520, HMMU1234567\nONEU7654321"), [
 ]);
 
 assert.match(getTrackingUrl("SMCU1284520", { "Carrier Type": "Ocean" }), /smlines\.com/);
-assert.match(getTrackingUrl("HMMU1234567", { "Carrier Type": "Ocean" }), /hmm21\.com/);
+assert.match(getTrackingUrl("HMMU1234567", { "Carrier Type": "Ocean" }), /\/track\/HMMU1234567$/);
 assert.match(getTrackingUrl("KMTU1234567", { "Carrier Type": "Ocean" }), /ekmtc\.com/);
 assert.match(getTrackingUrl("ONEU1234567", { "Carrier Type": "Ocean" }), /one-line\.com/);
 assert.match(getTrackingUrl("MSKU1234567", { "Carrier Type": "Ocean" }), /maersk\.com/);
