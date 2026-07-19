@@ -86,7 +86,7 @@
         ? globalThis.HMM_TRACKING_SERVICE
         : "";
 
-    return String(configured || "")
+    return (configured || "")
       .trim()
       .replace(/\/+$/, "");
   }
