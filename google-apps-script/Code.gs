@@ -2,7 +2,7 @@ const SPREADSHEET_ID = "1M-vZ24Yw4ZN7R7b_473cVn8kny8DznTakSsD3VQsCzc";
 
 const OUTBOUND_STATUS = ["", "SHIPPING", "DELIVERED", "RECEIVED", "COMPLETED"];
 const INBOUND_STATUS = ["", "N/A", "Delivered", "Customs Clearance", "FDA Review/Hold", "FWS Review/Hold", "Delayed"];
-const ALLOWED_SHEETS = ["WH Trucking Request", "B2B/E-COM TRUCKING", "TRANSFERS", "ULTA", "IHERB", "IMPORTS"];
+const ALLOWED_SHEETS = ["WH Trucking Request", "B2B/E-COM TRUCKING", "TRANSFERS", "ULTA", "IHERB", "IMPORTS", "NATIONAL ORDER PROGRESS", "TJX/ROSS"];
 
 function doPost(e) {
   const lock = LockService.getScriptLock();
@@ -53,17 +53,17 @@ function findInboundTarget_(sheet, request) {
 
 function findOutboundTarget_(sheet, request) {
   const values = sheet.getDataRange().getDisplayValues();
-  const header = findHeader_(values.slice(0, 4), ["STATUS"]);
+  const header = findHeader_(values.slice(0, 4), ["STATUS", "OVERALL PO STATUS", "WORK PROGRESS"]);
   if (!header) throw new Error("Status column not found.");
   const map = headerMap_(values[header.row - 1]);
   const candidates = [];
   for (let r = header.row; r < values.length; r++) {
     const row = values[r];
     let score = 0;
-    score += exact_(row, map, ["PRO#", "BOL", "BOL#"], request.pro) ? 100 : 0;
-    score += exact_(row, map, ["INVOICE", "INVOICE NO.", "PO#"], request.invoice) ? 50 : 0;
-    score += exact_(row, map, ["CUSTOMER", "NOTE", "DC"], request.customer) ? 20 : 0;
-    score += exact_(row, map, ["SHIP DATE", "PU", "DATE"], request.shipDate) ? 10 : 0;
+    score += exact_(row, map, ["PRO#", "BOL", "BOL#", "PU#"], request.pro) ? 100 : 0;
+    score += exact_(row, map, ["INVOICE", "INVOICE NO.", "PO#", "ORDER#", "ORDER NAME"], request.invoice) ? 50 : 0;
+    score += exact_(row, map, ["CUSTOMER", "NOTE", "DC", "CHANNEL", "ORDER NAME"], request.customer) ? 20 : 0;
+    score += exact_(row, map, ["SHIP DATE", "PU", "DATE", "START SHIP", "PICK-UP DATE", "SSD", "SHIPOUT DATE"], request.shipDate) ? 10 : 0;
     if (score) candidates.push({ row: r + 1, score });
   }
   candidates.sort((a, b) => b.score - a.score);
