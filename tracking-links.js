@@ -86,10 +86,10 @@
         ? globalThis.HMM_TRACKING_SERVICE
         : "";
 
-    const base = (configured || "")
+    const trackingBase = (configured || "")
       .trim()
       .replace(/\/+$/, "");
-    return base || null;
+    return trackingBase || null;
   }
 
   function getTrackingUrl(value, row) {
