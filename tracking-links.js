@@ -86,7 +86,7 @@
         ? globalThis.HMM_TRACKING_SERVICE
         : "";
 
-    return String(configured || "http://127.0.0.1:8787")
+    return String(configured || "")
       .trim()
       .replace(/\/+$/, "");
   }
@@ -120,7 +120,10 @@
     }
 
     if (prefix === "HMMU" || hasWord(context, "HMM") || context.includes("HDMU") || context.includes("HYUNDAI MERCHANT MARINE")) {
-      return `${getHmmTrackingBase()}/track/${encoded}`;
+      const trackingBase = getHmmTrackingBase();
+      return trackingBase
+        ? `${trackingBase}/track/${encoded}`
+        : `https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do?searchType=CNTR&searchNo=${encoded}`;
     }
 
     if (["MAEU", "MSKU", "MRSU"].includes(prefix) || context.includes("MAERSK")) {
