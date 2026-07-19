@@ -35,7 +35,7 @@ jobs:
           cp index.html _site/
           cp styles.css enhancements.css _site/
           cp app.js tracking-links.js _site/
-          if [ -f .nojekyll ]; then cp .nojekyll _site/; else touch _site/.nojekyll; fi
+          touch _site/.nojekyll
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
 
