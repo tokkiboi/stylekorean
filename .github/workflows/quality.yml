@@ -1,0 +1,24 @@
+name: Quality
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate JavaScript
+        run: |
+          node --check app.js
+          node smoke-test.js
+          node --test *.test.js
+      - name: Validate required static assets
+        run: |
+          test -s index.html
+          test -s styles.css
+          test -s app.js
+          test -s site-config.js
+          test -f .nojekyll

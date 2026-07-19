@@ -1,12 +1,134 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#075574"><title>StyleKorean Logistics Hub</title><meta name="description" content="Live StyleKorean inbound and outbound logistics dashboard"><link rel="stylesheet" href="styles.css?v=20260719-1"></head><body>
-<main><div class="site-shell">
-<header class="hero"><div class="hero-copy"><div class="brand-lockup"><span class="brand-mark">SK</span><span>LOGISTICS MASTER 2026</span></div><h1>Live Shipping Dashboard</h1><p>One clear view of every outbound order, inbound shipment, and small-parcel delivery.</p></div><div class="hero-actions"><button id="refresh" class="button button-light" type="button">↻ Refresh data</button><a class="button button-glass" href="https://docs.google.com/spreadsheets/d/1M-vZ24Yw4ZN7R7b_473cVn8kny8DznTakSsD3VQsCzc" target="_blank" rel="noreferrer">Open Google Sheet</a></div></header>
-<div class="sync-bar"><div><span id="dot" class="sync-dot"></span><span id="sync" role="status" aria-live="polite">Importing Logistics Master 2026…</span></div><div><span class="auto-refresh">Auto-refresh: 60s</span>Last updated: <strong id="updated">—</strong></div></div>
-<div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
-<section id="metrics" class="metrics"></section>
-<section class="panel eta-panel"><div class="panel-heading"><div><p class="eyebrow">NEXT 14 DAYS</p><h2>Upcoming inbound ETA</h2><p>Active arrivals grouped by ETA. Delivered rows are excluded.</p></div><span class="section-badge">Inbound</span></div><div id="inboundUpcoming" class="schedule-host"></div></section>
-<section class="panel eta-panel outbound-eta-panel"><div class="panel-heading"><div><p class="eyebrow outbound-eyebrow">NEXT 14 DAYS</p><h2>Upcoming outbound schedules</h2><p>Active orders by ship date. Same-customer entries within three days are consolidated.</p></div><span class="section-badge outbound-badge">Outbound</span></div><div id="outboundUpcoming" class="schedule-host"></div></section>
-<section class="panel table-panel"><div class="panel-heading compact"><div><p class="eyebrow">OUTBOUND</p><h2>All outbound shipping schedule</h2><p>Active rows are grouped by same customer when ship dates are within three days.</p></div><span id="outCount" class="row-count">0 rows</span></div><div class="filters"><label class="search-field"><input id="outSearch" placeholder="Search customer, invoice, vendor, carrier, PRO#, address…"></label><select id="source"><option value="">All sources</option></select><select id="outStatus"><option value="">All statuses</option></select></div><div class="table-wrap"><table class="outbound-table"><thead><tr><th>Source</th><th>Ship date</th><th>Customer / invoice</th><th>Vendor / supplier / origin</th><th>Carrier / PRO#</th><th>Load</th><th>QTY</th><th>L</th><th>W</th><th>H</th><th>Freight class</th><th>Sub class</th><th>Destination</th><th>Rate</th><th>Status</th></tr></thead><tbody id="outRows"></tbody></table></div></section>
-<section class="panel table-panel"><div class="panel-heading compact"><div><p class="eyebrow">OCEAN + AIR + SMALL PARCEL</p><h2>Inbound shipments data</h2><p>Shipment #, MBL, HBL, container or tracking number, ETA and one-click carrier tracking.</p></div><span id="inCount" class="row-count">0 rows</span></div><div class="filters inbound-filters"><label class="search-field"><input id="inSearch" placeholder="Search shipment, container, MBL, HBL, carrier…"></label><select id="mode"><option value="">All modes</option><option>Ocean</option><option>Air</option><option>Small Parcel</option></select></div><div class="table-wrap"><table><thead><tr><th>Mode</th><th>ETA</th><th>Shipment #</th><th>MBL</th><th>HBL</th><th>Container / Tracking #</th><th>Carrier</th><th>Route</th><th>Status</th></tr></thead><tbody id="inRows"></tbody></table></div></section>
-<footer><div><span class="brand-mark small">SK</span><strong>StyleKorean Logistics</strong></div><p>Outbound, inbound and parcel operations · Buena Park, California</p></footer>
-</div></main><script src="app.js?v=20260719-1"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>StyleKorean Logistics Hub — Live Shipping Dashboard</title>
+<meta name="description" content="Live StyleKorean inbound and outbound logistics dashboard, synced from Logistics Master 2026.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect x=%272%27 y=%278%27 width=%2728%27 height=%2716%27 rx=%272%27 fill=%27%23E4572E%27/%3E%3Cpath d=%27M7 10v12M12 10v12M17 10v12M22 10v12M27 10v12%27 stroke=%27%23B23A1C%27 stroke-width=%271.6%27/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://docs.google.com">
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;700;800&family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=20260718-2">
+</head>
+<body>
+<main class="shell">
+
+  <!-- ══════════ MANIFEST HEADER ══════════ -->
+  <header class="manifest">
+    <div class="manifest-route" aria-hidden="true">
+      <span>KRPUS ⚓ USLAX</span><span class="route-line"></span><span>ICN ✈ LAX</span><span class="route-line"></span><span>5609 RIVERWAY · BUENA PARK CA</span>
+    </div>
+    <div class="manifest-main">
+      <div>
+        <p class="manifest-eyebrow">Logistics Master 2026 · Live workbook sync</p>
+        <h1>StyleKorean<br>Logistics Hub</h1>
+        <p class="manifest-sub">Every outbound order, inbound container, and small-parcel delivery across all eleven workbook sources — one board.</p>
+      </div>
+      <div class="manifest-actions">
+        <button id="refresh" class="btn btn-solid">↻ Refresh data</button>
+        <a class="btn btn-line" href="https://docs.google.com/spreadsheets/d/1M-vZ24Yw4ZN7R7b_473cVn8kny8DznTakSsD3VQsCzc" target="_blank" rel="noreferrer">Open Google Sheet ↗</a>
+      </div>
+    </div>
+    <div class="sync-bar" role="status" aria-live="polite">
+      <span><span id="dot" class="sync-dot" aria-hidden="true"></span><span id="sync">Importing Logistics Master 2026…</span></span>
+      <span>Last updated: <strong id="updated" class="mono">—</strong></span>
+    </div>
+  </header>
+
+  <!-- ══════════ SOURCE STRIP ══════════ -->
+  <section class="panel" aria-labelledby="sourcesHead">
+    <div class="panel-head">
+      <div><p class="eyebrow" id="sourcesHead">Workbook sources</p><h2>Eleven live feeds</h2></div>
+      <span class="badge-count" id="sourceOkCount">—</span>
+    </div>
+    <div id="sourceStrip" class="source-strip"></div>
+  </section>
+
+  <!-- ══════════ METRICS ══════════ -->
+  <section id="metrics" class="metrics" aria-label="Key metrics"></section>
+
+  <!-- ══════════ INBOUND 14-DAY ══════════ -->
+  <section class="panel" aria-labelledby="inEtaHead">
+    <div class="panel-head">
+      <div><p class="eyebrow">Next 14 days</p><h2 id="inEtaHead">Upcoming inbound ETA</h2><p class="panel-sub">Active arrivals grouped by ETA — delivered rows excluded.</p></div>
+      <span class="side-badge">Inbound</span>
+    </div>
+    <div id="inboundBoard" class="board-host"></div>
+  </section>
+
+  <!-- ══════════ OUTBOUND 14-DAY ══════════ -->
+  <section class="panel" aria-labelledby="outEtaHead">
+    <div class="panel-head">
+      <div><p class="eyebrow">Next 14 days</p><h2 id="outEtaHead">Upcoming outbound schedule</h2><p class="panel-sub">Active orders by ship date, colored by source tab.</p></div>
+      <span class="side-badge badge-out">Outbound</span>
+    </div>
+    <div id="outboundBoard" class="board-host"></div>
+  </section>
+
+  <!-- ══════════ OUTBOUND TABLE ══════════ -->
+  <section class="panel" aria-labelledby="outTableHead">
+    <div class="panel-head">
+      <div><p class="eyebrow">All sources merged</p><h2 id="outTableHead">Outbound shipping schedule</h2></div>
+      <span class="badge-count" id="outCount">0 rows</span>
+    </div>
+    <div class="filters">
+      <label class="search-field"><span class="visually-hidden">Search outbound</span><span class="icon" aria-hidden="true">⌕</span><input id="outSearch" type="search" placeholder="Search customer, invoice, PRO#, carrier…"></label>
+      <label><span class="visually-hidden">Filter by source</span><select id="srcFilter"><option value="">All sources</option></select></label>
+      <label><span class="visually-hidden">Filter by status</span><select id="outStatus"><option value="">All statuses</option></select></label>
+      <label class="toggle"><input type="checkbox" id="showFinished"> Show finished</label>
+      <button id="exportCsv" class="btn-mini" type="button" title="Download the current filtered view as CSV">⭳ CSV</button>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table" id="outTable">
+        <thead><tr><th data-sort="source" aria-sort="none" scope="col">Source</th><th data-sort="shipDate" aria-sort="ascending" scope="col" class="sorted">Ship date</th><th data-sort="customer" aria-sort="none" scope="col">Customer / Invoice</th><th scope="col">Carrier / PRO#</th><th scope="col">Units</th><th scope="col">Dims (in) · lbs</th><th data-sort="destination" aria-sort="none" scope="col">Destination</th><th data-sort="rate" aria-sort="none" scope="col">Rate</th><th data-sort="status" aria-sort="none" scope="col">Status</th><th scope="col">Action</th></tr></thead>
+        <tbody id="outRows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ══════════ INBOUND TABLE ══════════ -->
+  <section class="panel" aria-labelledby="inTableHead">
+    <div class="panel-head">
+      <div><p class="eyebrow">Ocean · Air</p><h2 id="inTableHead">Inbound shipments</h2></div>
+      <span class="badge-count" id="inCount">0 rows</span>
+    </div>
+    <div class="filters filters-2">
+      <label class="search-field"><span class="visually-hidden">Search inbound</span><span class="icon" aria-hidden="true">⌕</span><input id="inSearch" type="search" placeholder="Search shipment #, container, MBL, HBL…"></label>
+      <label><span class="visually-hidden">Filter by mode</span><select id="modeFilter"><option value="">All modes</option><option>Ocean</option><option>Air</option></select></label>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table" id="inTable">
+        <thead><tr><th>Mode</th><th>ETA</th><th>Shipment #</th><th>Container / Tracking</th><th>MBL · HBL</th><th>Carrier</th><th>Origin</th><th>Destination</th><th>Status</th></tr></thead>
+        <tbody id="inRows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ══════════ SMALL PARCEL ══════════ -->
+  <section class="panel" aria-labelledby="parcelHead">
+    <div class="panel-head">
+      <div><p class="eyebrow">UPS · FedEx · USPS · DHL · Amazon</p><h2 id="parcelHead">Small-parcel inbound</h2><p class="panel-sub">Parcel sections from the IMPORTS tab, carrier inferred from tracking format.</p></div>
+      <span class="badge-count" id="parcelCount">0</span>
+    </div>
+    <div id="parcelGrid" class="parcel-grid"></div>
+  </section>
+
+  <div id="setupNotice" class="setup-notice hidden">
+    <strong>Can't reach the workbook.</strong> Check that LOGISTICS MASTER 2026 is link-readable
+    (Share → Anyone with the link → Viewer). Each source loads independently — the source strip above
+    shows exactly which tab failed.
+  </div>
+
+  <footer>
+    <p><strong>SK</strong> StyleKorean Logistics · Buena Park / Santa Fe Springs CA · Saddle Brook NJ</p>
+    <p class="mono" id="footNote">Synced read-only from Google Sheets · auto-refreshes every 10 min</p>
+  </footer>
+</main>
+<script src="site-config.js?v=20260719-1"></script>
+<script src="app.js?v=20260719-1"></script>
+</body>
+</html>
