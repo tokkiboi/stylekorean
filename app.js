@@ -52,7 +52,7 @@ function renderIn(){const q=$("inSearch").value.toLowerCase(),mode=$("mode").val
 ["outSearch","source","outStatus"].forEach(id=>$(id).addEventListener("input",renderOut));["inSearch","mode"].forEach(id=>$(id).addEventListener("input",renderIn));
 const POLL_INTERVAL=5*60*1000;let pollTimer=null,countdownTimer=null,nextAt=0;
 const nextRefreshEl=$("next-refresh");
-function startCountdown(){clearInterval(countdownTimer);nextAt=Date.now()+POLL_INTERVAL;countdownTimer=setInterval(()=>{const rem=Math.max(0,nextAt-Date.now()),m=Math.floor(rem/60000),s=Math.floor((rem%60000)/1000);if(nextRefreshEl)nextRefreshEl.textContent=` · Auto-refresh in ${m}:${String(s).padStart(2,"0")}`;},1000)}
+function startCountdown(){clearInterval(countdownTimer);nextAt=Date.now()+POLL_INTERVAL;countdownTimer=setInterval(()=>{const rem=Math.max(0,nextAt-Date.now()),m=Math.floor(rem/60000),s=Math.floor((rem%60000)/1000);if(nextRefreshEl)nextRefreshEl.textContent=` · Auto-refresh in ${m}:${String(s).padStart(2,"0")}`;},5000)}
 async function autoLoad(){try{await load()}catch(e){console.error("Auto-refresh error:",e)}finally{clearTimeout(pollTimer);pollTimer=setTimeout(autoLoad,POLL_INTERVAL);startCountdown()}}
 $("refresh").addEventListener("click",()=>{clearTimeout(pollTimer);clearInterval(countdownTimer);if(nextRefreshEl)nextRefreshEl.textContent="";autoLoad()});
 autoLoad();
