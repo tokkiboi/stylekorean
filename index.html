@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://docs.google.com">
 <link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;700;800&family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20260720-1">
+<link rel="stylesheet" href="styles.css?v=20260720-2">
 </head>
 <body>
 <main class="shell">
@@ -52,6 +52,15 @@
     <div class="panel-head">
       <div><p class="eyebrow">Platform control center</p><h2 id="integrationHead">Source integration health</h2><p class="panel-sub">Connectivity, coverage, freshness, and record volume across the unified logistics platform.</p></div>
       <button id="exportHealth" class="btn-mini" type="button">⭳ Health JSON</button>
+    </div>
+    <div class="database-bar">
+      <div id="databaseStatus"><strong>Checking database…</strong></div>
+      <form id="databaseSignIn" class="database-sign-in" hidden>
+        <label><span class="visually-hidden">Member email</span><input name="email" type="email" placeholder="name@stylekoreanus.com" required></label>
+        <button class="btn-mini" type="submit">Member sign in</button>
+        <span id="databaseResult" aria-live="polite"></span>
+      </form>
+      <button id="databaseSignOut" class="btn-mini" type="button" hidden>Sign out</button>
     </div>
     <div id="integrationSummary" class="integration-summary" aria-live="polite"></div>
     <div class="table-wrap integration-table-wrap">
@@ -142,8 +151,11 @@
     <p class="mono" id="footNote">Synced read-only from Google Sheets · auto-refreshes every 10 min</p>
   </footer>
 </main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.7" crossorigin="anonymous"></script>
+<script src="database-config.js?v=20260720-1"></script>
+<script src="database-client.js?v=20260720-1"></script>
 <script src="platform-config.js?v=20260720-1"></script>
 <script src="site-config.js?v=20260720-1"></script>
-<script src="app.js?v=20260720-2"></script>
+<script src="app.js?v=20260720-3"></script>
 </body>
 </html>

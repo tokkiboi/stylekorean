@@ -156,5 +156,14 @@ require("vm").runInThisContext(fs.readFileSync(__dirname + "/app.js", "utf8"), {
   assert(els["integrationRows"].innerHTML.includes("Google Sheets") && els["integrationRows"].innerHTML.includes("Online"), "integration health table did not render");
   assert(els["sourceStrip"].innerHTML.includes("#gid=1497250700"), "IMPORTS source link missing");
   assert(els["sourceStrip"].innerHTML.includes("noopener noreferrer"), "source links are not safely opened");
+  g(`applyDatabaseShipments([{
+    id: "db-1", version: 3, direction: "outbound", status: "shipping",
+    scheduled_at: "2026-07-28T12:00:00Z", customer: "DATABASE CUSTOMER",
+    invoice_number: "DB-PO-1", carrier: "TQL", pallets: 2, rate: 450,
+    sources: { label: "Database source" }
+  }])`);
+  assert(g("outboundRows").length === 1 && g("outboundRows")[0].databaseId === "db-1", "database shipment adapter failed");
+  assert(g("outboundRows")[0].shipDate === "07/28/26" && g("outboundRows")[0].status === "Shipping", "database normalization failed");
+  assert(g("completeAction(outboundRows[0])").includes("databaseId"), "database completion action missing");
   console.log(process.exitCode ? "SMOKE TEST FAILED" : "SMOKE TEST PASSED ✔");
 })().catch((e) => { console.error("FAIL", e); process.exit(1); });

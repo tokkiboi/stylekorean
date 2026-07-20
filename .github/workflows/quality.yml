@@ -13,6 +13,9 @@ jobs:
       - name: Validate JavaScript
         run: |
           node --check app.js
+          node --check platform-config.js
+          node --check database-config.js
+          node --check database-client.js
           node smoke-test.js
           node --test *.test.js
       - name: Validate required static assets
@@ -21,4 +24,8 @@ jobs:
           test -s styles.css
           test -s app.js
           test -s site-config.js
+          test -s database-config.js
+          test -s database-client.js
+          test -s supabase/migrations/202607200001_logistics_platform.sql
+          test -s supabase/functions/source-sync/index.ts
           test -f .nojekyll
