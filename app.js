@@ -6,8 +6,8 @@
    Imports ALL operational sources in LOGISTICS MASTER 2026:
      IMPORTS · TRANSFERS · ULTA · IHERB · B2B/E-COM TRUCKING ·
      WH Trucking Request · NATIONAL ORDER PROGRESS ·
-     NATIONAL SHIP OUT SCHEDULE · TJX/ROSS DIMENSION ·
-     OUTBOUND WEBSITE EXCLUSIONS · All Outbound KPI block (Z1:AA5)
+     Outbound Shipping Schedule · TJX/ROSS ·
+     OUTBOUND WEBSITE EXCLUSIONS · Outbound Shipping Schedule KPI block (Z1:AA5)
 
    Never imported: loginfo (credentials), dimension reference tabs.
    ═══════════════════════════════════════════════════════════════ */
@@ -35,12 +35,12 @@ const FALLBACK_SOURCES = [
   { tab: "B2B/E-COM TRUCKING",         range: "A:R",  kind: "outbound", gid: 1971553563 },
   { tab: "WH Trucking Request",        range: "A2:U", kind: "outbound", gid: 852802817 },
   { tab: "NATIONAL ORDER PROGRESS",    range: "A:U",  kind: "outbound", gid: 2026071601 },
-  { tab: "NATIONAL SHIP OUT SCHEDULE", range: "A:K",  kind: "outbound", gid: 20260708 },
-  { tab: "TJX/ROSS DIMENSION",         range: "A:R",  kind: "outbound", gid: 1110009873 },
+  { tab: "Outbound Shipping Schedule", range: "A3:U", kind: "outbound", gid: 20260708 },
+  { tab: "TJX/ROSS",                   range: "A:R",  kind: "outbound", gid: 1110009873 },
   { tab: "OUTBOUND WEBSITE EXCLUSIONS", range: "A:C", kind: "filter",  gid: 2026071701 }
 ];
 const SOURCES = PLATFORM.sources?.length ? [...PLATFORM.sources] : FALLBACK_SOURCES;
-const KPI_SOURCE = PLATFORM.kpiSource || { tab: "All Outbound Shipping Schedule", range: "Z1:AA5", kind: "kpi", gid: 20260708 };
+const KPI_SOURCE = PLATFORM.kpiSource || { tab: "Outbound Shipping Schedule", range: "Z1:AA5", kind: "kpi", gid: 20260708 };
 
 const SOURCE_COLORS = {
   "WH Trucking Request": "var(--c-wh)",
@@ -49,7 +49,7 @@ const SOURCE_COLORS = {
   "Ulta": "var(--c-ulta)",
   "iHerb": "var(--c-iherb)",
   "National Order Progress": "var(--c-national-order)",
-  "National Ship Out": "var(--c-ship-out)",
+  "Outbound Shipping Schedule": "var(--c-ship-out)",
   "TJX/ROSS": "var(--c-tjx)"
 };
 
@@ -77,12 +77,28 @@ function col(row, ...names) {
   return "";
 }
 /* tolerant getter for tabs with messy headers (line breaks, trailing spaces,
-   parentheticals — e.g. TJX/ROSS DIMENSION's "PO# ", "Alt.\nPU#\n(eg.NRT#)") */
+   parentheticals — e.g. TJX/ROSS's "PO# ", "Alt.\nPU#\n(eg.NRT#)") */
 function colLoose(row, ...names) {
   const wanted = names.map((n) => String(n).toUpperCase().replace(/[^A-Z0-9#]/g, ""));
   for (const key of Object.keys(row)) {
     const nk = key.toUpperCase().replace(/[^A-Z0-9#]/g, "");
     if (wanted.includes(nk) && row[key]) return row[key];
+  }
+  return "";
+}
+
+function invoiceNumber(row, ...preferred) {
+  for (const name of [...preferred, "INVOICE #", "INVOICE NO.", "INVOICE NO", "INVOICE NUMBER", "INVOICE"]) {
+    const value = colLoose(row, name);
+    if (value) return value;
+  }
+  return "";
+}
+
+function trackingNumber(row, ...preferred) {
+  for (const name of [...preferred, "PRO#", "PRO #", "TRACKING#", "TRACKING #", "TRACKING NUMBER", "BOL#", "BOL"]) {
+    const value = colLoose(row, name);
+    if (value) return value;
   }
   return "";
 }
@@ -325,6 +341,7 @@ function mapInbound(rows) {
       mode: isAir ? "Air" : "Ocean",
       eta: fmtDate(col(r, "ETA")),
       shipmentNo: col(r, "SHIPMENT"),
+      invoice: invoiceNumber(r, "INVOICE", "INVOICE #"),
       mbl,
       hbl: col(r, "HBL"),
       container,
@@ -397,6 +414,7 @@ function mapInboundPlanningGrid(table) {
         mode: "Ocean",
         eta,
         shipmentNo: shipmentNo || container,
+        invoice: "",
         mbl: "",
         hbl: "",
         container,
@@ -487,7 +505,7 @@ function pushOutbound(source, r, mapped, excludedFn) {
     sourceTab: ({
       "Transfers": "TRANSFERS", "Ulta": "ULTA", "iHerb": "IHERB",
       "B2B/E-com Trucking": "B2B/E-COM TRUCKING", "WH Trucking Request": "WH Trucking Request",
-      "National Order Progress": "NATIONAL ORDER PROGRESS", "National Ship Out": "NATIONAL SHIP OUT SCHEDULE",
+      "National Order Progress": "NATIONAL ORDER PROGRESS", "Outbound Shipping Schedule": "Outbound Shipping Schedule",
       "TJX/ROSS": "TJX/ROSS"
     })[source] || "",
     shipDate,
@@ -515,6 +533,60 @@ function pushOutbound(source, r, mapped, excludedFn) {
   });
 }
 
+function identifierParts(value) {
+  return clean(value).split(/[\r\n,;·]+/).map((part) => part.trim().toUpperCase().replace(/\s+/g, "")).filter(Boolean);
+}
+
+function sharesIdentifier(left, right) {
+  const wanted = new Set(identifierParts(left));
+  return identifierParts(right).some((part) => wanted.has(part));
+}
+
+/* The workbook's Outbound Shipping Schedule is the consolidated operational
+   view. Use it to fill identifiers missing from source rows; append only rows
+   that are not represented by any authoritative source tab. */
+function mergeOutboundScheduleIdentifiers(rows, excludedFn) {
+  rows.filter(useful).forEach((r) => {
+    const mapped = {
+      shipDate: col(r, "SHIP DATE"),
+      customer: col(r, "CUSTOMER"),
+      invoice: invoiceNumber(r, "INVOICE NO.", "INVOICE"),
+      origin: "",
+      carrier: col(r, "CARRIER"),
+      pro: trackingNumber(r, "PRO#"),
+      units: col(r, "PALLET TYPE") ? "Pallets" : "",
+      destination: col(r, "ADDRESS"),
+      status: classifyStatus(`${col(r, "STATUS")} ${col(r, "NOTE")}`)
+    };
+    if (!mapped.customer && !mapped.invoice && !mapped.pro) return;
+    const key = mapped.pro || mapped.invoice || "";
+    if (excludedFn("Outbound Shipping Schedule", key)) return;
+
+    const invoiceMatch = mapped.invoice && outboundRows.find((row) => sharesIdentifier(row.invoice, mapped.invoice));
+    const trackingMatch = mapped.pro && outboundRows.find((row) => sharesIdentifier(row.pro, mapped.pro));
+    const sameCustomerDate = outboundRows.filter((row) =>
+      clean(row.customer).toUpperCase() === clean(mapped.customer).toUpperCase() &&
+      clean(row.shipDate) === fmtDate(mapped.shipDate)
+    );
+    const match = invoiceMatch || trackingMatch || (sameCustomerDate.length === 1 ? sameCustomerDate[0] : null);
+    if (!match) {
+      pushOutbound("Outbound Shipping Schedule", r, mapped, excludedFn);
+      return;
+    }
+
+    match.invoice ||= clean(mapped.invoice);
+    match.pro ||= clean(mapped.pro);
+    match.carrier ||= clean(mapped.carrier);
+    match.units ||= clean(mapped.units);
+    match.destination ||= clean(mapped.destination);
+    match.length ||= col(r, "LENGTH (IN)");
+    match.width ||= col(r, "WIDTH (IN)");
+    match.height ||= col(r, "HEIGHT (IN)", "HEIGHT");
+    match.weight ||= col(r, "WEIGHT (LBS)", "WEIGHT");
+    if (!match.rate) match.rate = money(col(r, "RATE"));
+  });
+}
+
 function mapAllOutbound(tabs, excludedFn) {
   const { tr, ul, ih, b2, wh, national, shipOut, tjxRoss } = tabs;
   outboundRows = [];
@@ -522,10 +594,10 @@ function mapAllOutbound(tabs, excludedFn) {
   tr.filter(useful).forEach((r) => pushOutbound("Transfers", r, {
     shipDate: col(r, "PU"),
     customer: col(r, "TO"),
-    invoice: col(r, "INVOICE"),
+    invoice: invoiceNumber(r, "INVOICE"),
     origin: col(r, "VENDOR/SUPPLIER/ORIGIN", "VENDOR / SUPPLIER / ORIGIN", "VENDOR", "SUPPLIER", "ORIGIN"),
     carrier: col(r, "TRUCKING"),
-    pro: col(r, "BOL#"),
+    pro: trackingNumber(r, "BOL#", "PU#"),
     units: col(r, "PLT") ? `${col(r, "PLT")} Pallets` : "",
     destination: col(r, "TO"),
     status: classifyStatus(`${col(r, "STATUS")} ${col(r, "NOTE")} ${col(r, "INVOICE")}`)
@@ -534,9 +606,9 @@ function mapAllOutbound(tabs, excludedFn) {
   ul.filter(useful).forEach((r) => pushOutbound("Ulta", r, {
     shipDate: col(r, "SHIP DATE", "DATE"),
     customer: col(r, "DC") || "Ulta",
-    invoice: col(r, "PO#", "INVOICE"),
+    invoice: invoiceNumber(r, "PO#", "INVOICE"),
     carrier: col(r, "TRUCKING"),
-    pro: col(r, "PRO#"),
+    pro: trackingNumber(r, "PRO#"),
     units: col(r, "TOTAL CARTONS") ? `${col(r, "TOTAL CARTONS")} Cartons` : "",
     destination: col(r, "SHIP TO"),
     status: col(r, "PRO#") ? "Shipped"
@@ -546,9 +618,9 @@ function mapAllOutbound(tabs, excludedFn) {
   ih.filter(useful).forEach((r) => pushOutbound("iHerb", r, {
     shipDate: col(r, "PU", "DELIVERY APPT"),
     customer: `iHerb${col(r, "TO") ? " · " + col(r, "TO") : ""}`,
-    invoice: col(r, "PO#"),
+    invoice: invoiceNumber(r, "PO#"),
     carrier: col(r, "TRUCKING"),
-    pro: col(r, "BOL"),
+    pro: trackingNumber(r, "BOL"),
     units: col(r, "QTY") ? `${col(r, "QTY")} Pallets` : "",
     destination: col(r, "TO"),
     status: classifyStatus(`${col(r, "STATUS")} ${col(r, "NOTE")} ${col(r, "REMARKS")}`)
@@ -559,9 +631,9 @@ function mapAllOutbound(tabs, excludedFn) {
   ).forEach((r) => pushOutbound("B2B/E-com Trucking", r, {
     shipDate: col(r, "PU"),
     customer: col(r, "NOTE"),
-    invoice: col(r, "INVOICE"),
+    invoice: invoiceNumber(r, "INVOICE"),
     carrier: col(r, "TRUCKING"),
-    pro: col(r, "PRO#"),
+    pro: trackingNumber(r, "PRO#"),
     units: col(r, "PLT") ? `${col(r, "PLT")} Pallets` : "",
     destination: col(r, "TO"),
     status: classifyStatus(Object.values(r).join(" "))
@@ -574,9 +646,9 @@ function mapAllOutbound(tabs, excludedFn) {
   ).forEach((r) => pushOutbound("WH Trucking Request", r, {
     shipDate: col(r, "SHIP DATE"),
     customer: col(r, "CUSTOMER"),
-    invoice: col(r, "INVOICE NO."),
+    invoice: invoiceNumber(r, "INVOICE NO."),
     carrier: col(r, "CARRIER"),
-    pro: col(r, "PRO#"),
+    pro: trackingNumber(r, "PRO#"),
     units: col(r, "PALLET TYPE") ? "Pallets" : "",
     destination: col(r, "ADDRESS"),
     status: classifyStatus(`${col(r, "STATUS")} ${col(r, "NOTE")} ${col(r, "REMARKS")}`)
@@ -586,36 +658,18 @@ function mapAllOutbound(tabs, excludedFn) {
   .forEach((r) => pushOutbound("National Order Progress", r, {
     shipDate: col(r, "PICK-UP DATE", "START SHIP", "SHIPPING DATE", "SHIP DATE"),
     customer: col(r, "CHANNEL"),
-    invoice: col(r, "PO#", "ORDER#"),
+    invoice: invoiceNumber(r, "PO#", "ORDER#"),
     origin: col(r, "DEPARTMENT"),
     carrier: col(r, "SHIPMENT TYPE"),
-    pro: "",
+    pro: trackingNumber(r, "PRO#", "TRACKING#", "BOL#"),
     units: col(r, "MEMO"),
     destination: "",
     status: classifyStatus(`${col(r, "OVERALL PO STATUS")} ${col(r, "MEMO")}`)
   }, excludedFn));
 
-  /* NATIONAL SHIP OUT SCHEDULE — skip its embedded placeholder template rows */
-  shipOut.filter((r) => {
-    const account = col(r, "ACCOUNT");
-    const orderName = col(r, "ORDER NAME");
-    if (!useful(r) || !account) return false;
-    if (/^account$/i.test(account) || /^order\/po#$/i.test(orderName)) return false;
-    return Boolean(col(r, "WORK PROGRESS") || col(r, "# OF CARTONS") || col(r, "# OF PALLETS"));
-  }).forEach((r) => pushOutbound("National Ship Out", r, {
-    shipDate: col(r, "SSD", "ROUTING DATE"),
-    customer: col(r, "ACCOUNT"),
-    invoice: col(r, "ORDER NAME"),
-    origin: col(r, "# OF POS") ? `${col(r, "# OF POS")} POs` : "",
-    carrier: col(r, "SHIP METHOD"),
-    pro: "",
-    units: col(r, "# OF PALLETS") ? `${col(r, "# OF PALLETS")} Pallets`
-      : col(r, "# OF CARTONS") ? `${col(r, "# OF CARTONS")} Cartons` : "",
-    destination: "",
-    status: classifyStatus(`${col(r, "WORK PROGRESS")} ${col(r, "NOTE")}`)
-  }, excludedFn));
+  mergeOutboundScheduleIdentifiers(shipOut, excludedFn);
 
-  /* TJX/ROSS DIMENSION — grouped layout: the order name appears once and its
+  /* TJX/ROSS — grouped layout: the order name appears once and its
      PO lines follow below, so carry the group label forward. */
   let currentOrder = "";
   let currentReceived = "";
@@ -634,10 +688,10 @@ function mapAllOutbound(tabs, excludedFn) {
     pushOutbound("TJX/ROSS", r, {
       shipDate: colLoose(r, "SHIPOUT DATE", "SHIP OUT DATE") || colLoose(r, "SSD"),
       customer: currentOrder || colLoose(r, "DC#") || "TJX/ROSS",
-      invoice: po,
+      invoice: invoiceNumber(r, "PO#", "PO"),
       origin: currentReceived ? `Ordered ${currentReceived}` : "",
       carrier: colLoose(r, "CARRIER"),
-      pro: bol,
+      pro: trackingNumber(r, "BOL", "PU#", "ALT. PU# (EG.NRT#)", "ALT PU#", "SHIPMENT #"),
       units: [
         colLoose(r, "PLT") ? `${colLoose(r, "PLT")} Plt` : "",
         colLoose(r, "BOX") ? `${colLoose(r, "BOX")} Box` : ""
@@ -688,7 +742,8 @@ function applyDatabaseShipments(records) {
       const tracking = containerTrackingProfile({ SCAC: record.scac, CARRIER: record.carrier, TERMINAL: record.terminal, PORT: record.port }, record.container_number, record.destination);
       inboundRows.push({
         ...base, mode: clean(record.mode) || "Ocean", eta: databaseDate(record.eta_at),
-        shipmentNo: clean(record.shipment_number), mbl: clean(record.raw?.mbl), hbl: clean(record.raw?.hbl),
+        shipmentNo: clean(record.shipment_number), invoice: clean(record.invoice_number),
+        mbl: clean(record.raw?.mbl), hbl: clean(record.raw?.hbl),
         container: clean(record.container_number),
         trackingUrl: tracking.url, trackingSource: tracking.source, sourceTab: "", sourceRow: 0, sourceStatus: ""
       });
@@ -775,7 +830,7 @@ async function load() {
       "Transfers": "TRANSFERS", "Ulta": "ULTA", "iHerb": "IHERB",
       "B2B/E-com Trucking": "B2B/E-COM TRUCKING", "WH Trucking Request": "WH TRUCKING REQUEST",
       "National Order Progress": "NATIONAL ORDER PROGRESS",
-      "National Ship Out": "NATIONAL SHIP OUT SCHEDULE", "TJX/ROSS": "TJX/ROSS DIMENSION"
+      "Outbound Shipping Schedule": "OUTBOUND SHIPPING SCHEDULE", "TJX/ROSS": "TJX/ROSS"
     };
     const excludedFn = (source, key) =>
       Boolean(key) && exclusionSet.has(`${tabOf[source] || source.toUpperCase()}|${key}`.toUpperCase());
@@ -830,7 +885,7 @@ async function load() {
       error: results[i].status === "rejected" ? results[i].reason?.message || "Unavailable" : ""
     }));
     sourceHealth.push({
-      id: KPI_SOURCE.id || "outbound-kpis", tab: "All Outbound KPI block", range: KPI_SOURCE.range,
+      id: KPI_SOURCE.id || "outbound-kpis", tab: "Outbound Shipping Schedule KPI block", range: KPI_SOURCE.range,
       kind: "kpi", provider: KPI_SOURCE.provider || "googleSheets", gid: KPI_SOURCE.gid,
       checkedAt, ok: kpiOk, rows: kpiOk ? 4 : 0, error: kpiOk ? "" : "KPI source unavailable"
     });
@@ -877,7 +932,7 @@ function renderSourceStrip() {
       "TRANSFERS": "var(--c-transfers)", "ULTA": "var(--c-ulta)", "IHERB": "var(--c-iherb)",
       "B2B/E-COM TRUCKING": "var(--c-b2b)", "WH Trucking Request": "var(--c-wh)",
       "NATIONAL ORDER PROGRESS": "var(--c-national-order)",
-      "NATIONAL SHIP OUT SCHEDULE": "var(--c-ship-out)", "TJX/ROSS DIMENSION": "var(--c-tjx)"
+      "Outbound Shipping Schedule": "var(--c-ship-out)", "TJX/ROSS": "var(--c-tjx)"
     }[s.tab] || "var(--ink-2)";
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit#gid=${s.gid}`;
     return `<a class="source-chip ${s.ok ? "" : "failed"}" style="--c:${color}" href="${url}" target="_blank" rel="noopener noreferrer" title="Open ${esc(s.tab)} in Google Sheets" aria-label="Open ${esc(s.tab)} source sheet">
@@ -981,12 +1036,15 @@ function renderBoards() {
   renderBoard("inboundBoard", activeInbound(), "eta", (r) =>
     `<div class="board-item" style="--c:${r.mode === "Air" ? "var(--c-b2b)" : "var(--c-transfers)"}">
       <strong>${esc(r.shipmentNo || r.container || r.mbl || "Shipment")}</strong>
-      <span>${esc(r.container || r.carrier)}</span>
+      <span>${esc([r.container || r.carrier, r.invoice ? `Invoice # ${r.invoice}` : ""].filter(Boolean).join(" · "))}</span>
     </div>`);
   renderBoard("outboundBoard", activeOutbound(), "shipDate", (r) =>
     `<div class="board-item" style="--c:${srcColor(r.source)}">
       <strong>${esc(r.customer || "—")}</strong>
-      <span>${esc(r.invoice || r.pro || r.source)}</span>
+      <span>${esc([
+        r.invoice ? `Invoice # ${r.invoice}` : "",
+        r.pro ? `PRO / Tracking # ${r.pro}` : ""
+      ].filter(Boolean).join(" · ") || r.source)}</span>
     </div>`);
 }
 
@@ -1056,9 +1114,9 @@ function renderOutbound() {
     trEl.innerHTML =
       `<td>${srcTag(r.source)}</td>` +
       `<td class="cell-date">${esc(r.shipDate) || "—"}</td>` +
-      `<td><strong>${esc(r.customer) || "—"}</strong><small>${esc(r.invoice)}</small>` +
+      `<td><strong>${esc(r.customer) || "—"}</strong><small>Invoice # ${esc(r.invoice) || "—"}</small>` +
         (r.origin ? `<small>${esc(r.origin)}</small>` : "") + `</td>` +
-      `<td><strong>${esc(r.carrier) || "—"}</strong><small>${esc(r.pro)}</small></td>` +
+      `<td><strong>${esc(r.carrier) || "—"}</strong><small>PRO / Tracking # ${esc(r.pro) || "—"}</small></td>` +
       `<td>${esc(r.units) || esc(r.qty) || "—"}</td>` +
       `<td class="cell-dims">${dims}</td>` +
       `<td>${esc(r.destination) || "—"}</td>` +
@@ -1131,7 +1189,7 @@ function exportOutboundCsv() {
   const rows = filteredOutbound();
   const cell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const csv = [
-    ["Source", "Ship date", "Customer", "Invoice", "Origin", "Carrier", "PRO#", "Units",
+    ["Source", "Ship date", "Customer", "Invoice #", "Origin", "Carrier", "PRO / Tracking #", "Units",
      "Length (in)", "Width (in)", "Height (in)", "Weight (lbs)", "Destination", "Rate", "Status"].map(cell).join(","),
     ...rows.map((r) => [
       r.source, r.shipDate, r.customer, r.invoice, r.origin, r.carrier, r.pro, r.units || r.qty,
@@ -1161,7 +1219,7 @@ function renderInbound() {
   const body = $("inRows");
   body.innerHTML = "";
   if (!rows.length) {
-    body.innerHTML = `<tr class="empty-row"><td colspan="9">No matching inbound shipments.</td></tr>`;
+    body.innerHTML = `<tr class="empty-row"><td colspan="10">No matching inbound shipments.</td></tr>`;
     return;
   }
   const frag = document.createDocumentFragment();
@@ -1171,6 +1229,7 @@ function renderInbound() {
       `<td><span class="mode-tag mode-${r.mode.toLowerCase().replace(/\s+/g, "-")}">${esc(r.mode)}</span></td>` +
       `<td class="cell-date">${esc(r.eta) || "—"}</td>` +
       `<td><strong>${esc(r.shipmentNo) || "—"}</strong></td>` +
+      `<td><span class="mono">${esc(r.invoice) || "—"}</span></td>` +
       `<td>${r.container
         ? (r.trackingUrl
           ? `<a class="track-link" href="${esc(r.trackingUrl)}" target="_blank" rel="noreferrer" title="${esc(r.trackingSource || "Container tracking")}">${esc(r.container)} ↗</a>`
@@ -1199,7 +1258,7 @@ function renderParcels() {
         ${statusPill(p.status)}
       </div>
       <strong>${esc(p.tracking)}</strong>
-      <p>${esc(p.invoice ? p.invoice + " · " : "")}${esc(p.note)}</p>
+      <p>${esc(p.invoice ? `Invoice # ${p.invoice} · ` : "")}${esc(p.note)}</p>
       <div class="parcel-bottom">
         <span class="parcel-eta">${p.eta ? "ETA " + esc(p.eta) : "ETA —"}</span>
         ${p.url ? `<a class="track-link" href="${esc(p.url)}" target="_blank" rel="noreferrer">Track ↗</a>` : ""}
