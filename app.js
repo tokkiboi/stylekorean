@@ -16,7 +16,11 @@
 /* ---------- constants & state ---------- */
 const PLATFORM = globalThis.STYLEKOREAN_PLATFORM || {};
 const SHEET_ID = PLATFORM.workbook?.id || "1M-vZ24Yw4ZN7R7b_473cVn8kny8DznTakSsD3VQsCzc";
-const FINISHED = new Set(PLATFORM.finishedStatuses || ["Delivered", "Received", "Completed", "Cancelled"]);
+const FINISHED = new Set(PLATFORM.finishedStatuses || ["Shipped", "Delivered", "Received", "Completed", "Cancelled"]);
+const STATUS_OPTIONS = Object.freeze([
+  "Scheduled", "Work in Progress", "Pending", "Shipping", "Shipped",
+  "Delivered", "Received", "Cancelled", "Completed"
+]);
 const PARCEL_SECTIONS = /^(UPS|USPS|DHL|AMAZON|FEDEX)$/i;
 const PARCEL_STATUS_OVERRIDES = new Map(Object.entries(PLATFORM.parcelStatusOverrides || {}));
 const PLANNING_LABELS = /^(URGENT|SCHEDULED|NEED SCHEDULING|COMPLETED)$/i;
@@ -24,7 +28,7 @@ const AUTO_REFRESH_MS = Number(PLATFORM.refreshMs) || 10 * 60 * 1000;
 const COMPLETE_ENDPOINT = String(globalThis.STYLEKOREAN_CONFIG?.completeEndpoint || "").trim();
 
 const FALLBACK_SOURCES = [
-  { tab: "IMPORTS",                    range: "A:AD", kind: "inbound",  gid: 1497250700 },
+  { tab: "IMPORTS",                    range: "A:AF", kind: "inbound",  gid: 1497250700 },
   { tab: "TRANSFERS",                  range: "A:N",  kind: "outbound", gid: 1834454901 },
   { tab: "ULTA",                       range: "A:N",  kind: "outbound", gid: 360479919 },
   { tab: "IHERB",                      range: "A:M",  kind: "outbound", gid: 955532469 },
@@ -62,7 +66,7 @@ const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => (
   { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
 ));
 const clean = (v) => String(v ?? "").trim();
-const useful = (r) => Object.values(r).some(Boolean);
+const useful = (r) => Object.entries(r).some(([key, value]) => !key.startsWith("__") && Boolean(value));
 
 /* exact-name column getter (headers already normalized by objects()) */
 function col(row, ...names) {
@@ -104,7 +108,10 @@ async function fetchTable(tab, range, withHeaders = true) {
   try {
     const r = await fetch(u, { cache: "no-store", signal: ctl.signal });
     if (!r.ok) throw Error(`${tab}: HTTP ${r.status}`);
-    return parseGviz(await r.text());
+    const table = parseGviz(await r.text());
+    const rowMatch = clean(range).match(/^[A-Z]+(\d+)/i);
+    table.__sourceStartRow = rowMatch ? Number(rowMatch[1]) : 1;
+    return table;
   } catch (e) {
     throw e.name === "AbortError" ? Error(`${tab}: timed out (20s)`) : e;
   } finally {
@@ -116,12 +123,14 @@ function objects(table) {
   const headers = table.cols.map((c, i) =>
     (c.label || `COL_${i}`).toUpperCase().replace(/\s+/g, " ").trim()
   );
-  return table.rows.map((r) => Object.fromEntries(
-    headers.map((h, i) => {
+  const startRow = Number(table.__sourceStartRow || 1);
+  return table.rows.map((r, rowIndex) => ({
+    __sourceRow: startRow + rowIndex + 1,
+    ...Object.fromEntries(headers.map((h, i) => {
       const c = r.c?.[i];
       return [h, c ? clean(c.f ?? c.v ?? "") : ""];
-    })
-  ));
+    }))
+  }));
 }
 const rawCell = (row, i) => {
   const c = row.c?.[i];
@@ -174,9 +183,12 @@ function money(v) {
 function classifyStatus(v) {
   v = String(v || "").toLowerCase();
   if (/cancel/.test(v)) return "Cancelled";
-  if (/\bshipped\b|\bdone\b|complete|closed|gr[ae]y(?:ed)?\s*out/.test(v)) return "Completed";
   if (/deliver/.test(v)) return "Delivered";
   if (/receive/.test(v)) return "Received";
+  if (/\bshipped\b/.test(v)) return "Shipped";
+  if (/\bdone\b|complete|closed|gr[ae]y(?:ed)?\s*out/.test(v)) return "Completed";
+  if (/work\s*in\s*progress|\bwip\b/.test(v)) return "Work in Progress";
+  if (/pending/.test(v)) return "Pending";
   if (/shipping|transit|progress/.test(v)) return "Shipping";
   return "Scheduled";
 }
@@ -189,6 +201,66 @@ function containerNumbers(v) {
     .map((p) => p.trim().replace(/\s/g, "").toUpperCase())
     .filter((p) => /^[A-Z]{4}\d{7}$/.test(p));
 }
+
+/* Container tracking priority:
+   1) official carrier from source SCAC/carrier text or equipment prefix
+   2) destination terminal / port community system
+   3) third-party auto-detect fallback (SeaRates is intentionally not used) */
+const OFFICIAL_CONTAINER_TRACKING = [
+  { carrier: "HMM", keys: ["HDMU", "HMMU", "HMM"], url: (n) => "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do?searchType=CNTR&searchNo=" + encodeURIComponent(n) },
+  { carrier: "Maersk", keys: ["MAEU", "MSKU", "MRKU", "MAERSK"], url: (n) => "https://www.maersk.com/tracking/" + encodeURIComponent(n) },
+  { carrier: "MSC", keys: ["MSCU", "MEDU", "MSC"], url: (n) => "https://www.msc.com/en/track-a-shipment?trackingNumber=" + encodeURIComponent(n) },
+  { carrier: "CMA CGM", keys: ["CMDU", "CMAU", "CMA CGM"], url: (n) => "https://www.cma-cgm.com/ebusiness/tracking/search?SearchBy=Container&Reference=" + encodeURIComponent(n) },
+  { carrier: "COSCO", keys: ["COSU", "CBHU", "COSCO"], url: (n) => "https://elines.coscoshipping.com/ebusiness/cargoTracking?trackingType=CONTAINER&number=" + encodeURIComponent(n) },
+  { carrier: "OOCL", keys: ["OOLU", "OOCL"], url: () => "https://www.oocl.com/eng/ourservices/eservices/cargotracking/Pages/cargotracking.aspx" },
+  { carrier: "ONE", keys: ["ONEY", "OCEAN NETWORK EXPRESS"], url: (n) => "https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking?trakNoParam=" + encodeURIComponent(n) },
+  { carrier: "Evergreen", keys: ["EGLV", "EVERGREEN"], url: () => "https://ct.shipmentlink.com/servlet/TDB1_CargoTracking.do" },
+  { carrier: "Yang Ming", keys: ["YMLU", "YANG MING"], url: () => "https://www.yangming.com/e-service/track_trace/track_trace_cargo_tracking.aspx" },
+  { carrier: "ZIM", keys: ["ZIMU", "ZIM"], url: (n) => "https://www.zim.com/tools/track-a-shipment?consnumber=" + encodeURIComponent(n) },
+  { carrier: "Hapag-Lloyd", keys: ["HLCU", "HAPAG"], url: (n) => "https://www.hapag-lloyd.com/en/online-business/track/track-by-container-solution.html?container=" + encodeURIComponent(n) },
+  { carrier: "SM Line", keys: ["SMLM", "SMCU", "SM LINE"], url: (n) => "https://esvc.smlines.com/smline/CUP_HOM_3301.do?search_type=C&search_name=" + encodeURIComponent(n) }
+];
+const TERMINAL_CONTAINER_TRACKING = [
+  { name: "APM Terminals Pier 400", keys: ["APMT", "PIER 400"], url: "https://www.apmterminals.com/en/los-angeles/practical-information/track-and-trace" },
+  { name: "Fenix Marine Services", keys: ["FENIX", "FMS TERMINAL"], url: "https://fenixmarineservices.com/" },
+  { name: "Long Beach Container Terminal", keys: ["LBCT"], url: "https://www.lbct.com/" },
+  { name: "Total Terminals International", keys: ["TTI"], url: "https://www.totalterminals.com/" },
+  { name: "Yusen Terminals", keys: ["YTI"], url: "https://yti.com/" },
+  { name: "West Basin Container Terminal", keys: ["WBCT"], url: "https://www.portsamerica.com/locations/west-coast/wbct" },
+  { name: "International Transportation Service", keys: ["ITS TERMINAL"], url: "https://www.itslb.com/" },
+  { name: "TraPac", keys: ["TRAPAC"], url: "https://www.trapac.com/" }
+];
+
+function containerTrackingProfile(row, container, destination = "") {
+  const n = clean(container).replace(/\s/g, "").toUpperCase();
+  if (!n) return { url: "", source: "", carrier: "" };
+  const rowText = [
+    n, destination,
+    col(row || {}, "SCAC", "CARRIER SCAC", "OCEAN CARRIER", "CARRIER", "LINE", "FORWARDER", "TERMINAL", "POD", "PORT"),
+    ...Object.values(row || {})
+  ].join(" ").toUpperCase();
+
+  const official = OFFICIAL_CONTAINER_TRACKING.find((profile) =>
+    profile.keys.some((key) => rowText.includes(key))
+  );
+  if (official) return { url: official.url(n), source: official.carrier + " official", carrier: official.carrier };
+
+  const terminal = TERMINAL_CONTAINER_TRACKING.find((profile) =>
+    profile.keys.some((key) => rowText.includes(key))
+  );
+  if (terminal) return { url: terminal.url, source: terminal.name, carrier: "" };
+
+  if (/(?:LOS ANGELES|LONG BEACH|USLAX|USLGB|LA\s*\/\s*LONG BEACH)/i.test(rowText)) {
+    return { url: "https://track.portoptimizer.com/", source: "LA/LB Port Optimizer", carrier: "" };
+  }
+
+  return {
+    url: "https://www.track-trace.com/container?number=" + encodeURIComponent(n),
+    source: "Track-Trace fallback",
+    carrier: ""
+  };
+}
+
 function looksLikeParcelTracking(raw) {
   const n = clean(raw).replace(/\s/g, "").toUpperCase();
   return /^1Z[0-9A-Z]{16}$/.test(n) || /^TBA[0-9A-Z]+$/.test(n) ||
@@ -244,6 +316,11 @@ function mapInbound(rows) {
     const container = containerNumbers(containerRaw)[0] || containerRaw.split(/[,\n]/)[0].trim();
     const mbl = col(r, "MBL");
     const isAir = !container && /^\d{3}-?\d{8}$/.test(mbl.replace(/\s/g, ""));
+    const destination = col(r, "DESTINATION", "POD", "PORT", "DELIVERY") || "LA / Long Beach";
+    const tracking = containerTrackingProfile(r, container, destination);
+    const sourceCarrier = col(r, "CARRIER", "LINE", "FORWARDER");
+    const vesselOrFlight = col(r, "VSL");
+    const sourceStatus = col(r, "WEBSITE STATUS", "STATUS", "SHIPMENT STATUS");
     return {
       mode: isAir ? "Air" : "Ocean",
       eta: fmtDate(col(r, "ETA")),
@@ -251,11 +328,15 @@ function mapInbound(rows) {
       mbl,
       hbl: col(r, "HBL"),
       container,
-      carrier: col(r, "CARRIER", "LINE", "FORWARDER") || (isAir ? "Air freight" : "Ocean freight"),
-      trackingUrl: container ? `https://www.searates.com/container/tracking/?container=${encodeURIComponent(container)}` : "",
-      origin: col(r, "VSL") || "Korea / Asia",
-      destination: col(r, "DESTINATION", "POD", "PORT", "DELIVERY") || "LA / Long Beach",
-      status: effectiveStatus(r, classifyStatus(`${col(r, "NOTES")} ${col(r, "RESERVED")} ${col(r, "DELIVERY EXPECTED")}`))
+      carrier: sourceCarrier || (isAir ? vesselOrFlight || "Air freight" : tracking.carrier || "Ocean freight"),
+      trackingUrl: tracking.url,
+      trackingSource: tracking.source,
+      origin: col(r, "ORIGIN", "POL", "PORT OF LOADING") || "Korea / Asia",
+      destination,
+      sourceTab: "IMPORTS",
+      sourceRow: r.__sourceRow || 0,
+      sourceStatus,
+      status: effectiveStatus(r, classifyStatus([sourceStatus, col(r, "NOTES"), col(r, "RESERVED"), col(r, "DELIVERY EXPECTED")].join(" ")))
     };
   });
 }
@@ -311,6 +392,7 @@ function mapInboundPlanningGrid(table) {
         .replace(/\s*-\s*$/, "")
         .trim();
       const eta = (phase === "needs-scheduling" ? phaseDates.get(column) : "") || topDates.get(column) || "";
+      const tracking = containerTrackingProfile({}, container, "LA / Long Beach");
       planned.push({
         mode: "Ocean",
         eta,
@@ -319,7 +401,11 @@ function mapInboundPlanningGrid(table) {
         hbl: "",
         container,
         carrier: "Ocean freight",
-        trackingUrl: `https://www.searates.com/container/tracking/?container=${encodeURIComponent(container)}`,
+        trackingUrl: tracking.url,
+        trackingSource: tracking.source,
+        sourceTab: "IMPORTS",
+        sourceRow: 0,
+        sourceStatus: "",
         origin: "IMPORTS planning grid",
         destination: "LA / Long Beach",
         /* The row state is authoritative. A column heading such as COMPLETED
@@ -396,10 +482,13 @@ function pushOutbound(source, r, mapped, excludedFn) {
   const rowStatus = effectiveStatus(r, mapped.status);
   outboundRows.push({
     source,
+    sourceRow: r.__sourceRow || 0,
+    sourceStatus: col(r, "WEBSITE STATUS", "STATUS", "OVERALL PO STATUS", "WORK PROGRESS"),
     sourceTab: ({
       "Transfers": "TRANSFERS", "Ulta": "ULTA", "iHerb": "IHERB",
       "B2B/E-com Trucking": "B2B/E-COM TRUCKING", "WH Trucking Request": "WH Trucking Request",
-      "National Order Progress": "NATIONAL ORDER PROGRESS", "TJX/ROSS": "TJX/ROSS"
+      "National Order Progress": "NATIONAL ORDER PROGRESS", "National Ship Out": "NATIONAL SHIP OUT SCHEDULE",
+      "TJX/ROSS": "TJX/ROSS"
     })[source] || "",
     shipDate,
     customer: clean(mapped.customer),
@@ -450,7 +539,7 @@ function mapAllOutbound(tabs, excludedFn) {
     pro: col(r, "PRO#"),
     units: col(r, "TOTAL CARTONS") ? `${col(r, "TOTAL CARTONS")} Cartons` : "",
     destination: col(r, "SHIP TO"),
-    status: col(r, "PRO#") ? "Completed"
+    status: col(r, "PRO#") ? "Shipped"
       : classifyStatus(`${col(r, "STATUS")} ${col(r, "NOTE")} ${col(r, "REMARKS")}`)
   }, excludedFn));
 
@@ -596,11 +685,12 @@ function applyDatabaseShipments(records) {
         url: parcelTrackingUrl(record.carrier, record.tracking_number)
       });
     } else {
+      const tracking = containerTrackingProfile({ SCAC: record.scac, CARRIER: record.carrier, TERMINAL: record.terminal, PORT: record.port }, record.container_number, record.destination);
       inboundRows.push({
         ...base, mode: clean(record.mode) || "Ocean", eta: databaseDate(record.eta_at),
         shipmentNo: clean(record.shipment_number), mbl: clean(record.raw?.mbl), hbl: clean(record.raw?.hbl),
         container: clean(record.container_number),
-        trackingUrl: record.container_number ? `https://www.searates.com/container/tracking/?container=${encodeURIComponent(record.container_number)}` : ""
+        trackingUrl: tracking.url, trackingSource: tracking.source, sourceTab: "", sourceRow: 0, sourceStatus: ""
       });
     }
   });
@@ -773,7 +863,8 @@ function srcTag(source) {
   ).join(" ");
 }
 function statusPill(status) {
-  return `<span class="status status-${status.toLowerCase()}">${esc(status)}</span>`;
+  const cls = status.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return `<span class="status status-${cls}">${esc(status)}</span>`;
 }
 const activeOutbound = () => outboundRows.filter((r) => !FINISHED.has(r.status));
 const activeInbound = () => inboundRows.filter((r) => !FINISHED.has(r.status));
@@ -973,55 +1064,65 @@ function renderOutbound() {
       `<td>${esc(r.destination) || "—"}</td>` +
       `<td class="cell-money">${r.rate ? "$" + r.rate.toLocaleString() : "—"}</td>` +
       `<td>${statusPill(r.status)}</td>` +
-      `<td>${completeAction(r)}</td>`;
+      `<td>${statusControl(r, "outbound")}</td>`;
     frag.appendChild(trEl);
   });
   body.appendChild(frag);
 }
 
-function completeAction(row) {
-  if (FINISHED.has(row.status)) return '<span class="complete-done">Completed</span>';
-  if (row.databaseId) {
-    const relation = encodeURIComponent(JSON.stringify({ databaseId: row.databaseId, databaseVersion: row.databaseVersion, customer: row.customer, invoice: row.invoice }));
-    return `<button class="complete-button" type="button" data-complete="${relation}" title="Mark this synchronized database entry completed">Mark complete</button><span class="complete-result" aria-live="polite"></span>`;
-  }
-  if (!row.sourceTab) return '<span class="complete-unavailable" title="This source does not expose a writable status field">Source only</span>';
-  const relation = encodeURIComponent(JSON.stringify({
-    kind: "outbound", sourceSheet: row.sourceTab, pro: row.pro || "",
-    invoice: row.invoice || "", customer: row.customer || "", shipDate: row.shipDate || "",
-    currentStatus: ""
-  }));
-  return `<button class="complete-button" type="button" data-complete="${relation}" ${COMPLETE_ENDPOINT ? "" : "aria-disabled=\"true\""} title="${COMPLETE_ENDPOINT ? "Mark this source entry completed" : "Configure the authenticated Apps Script endpoint first"}">Mark complete</button><span class="complete-result" aria-live="polite"></span>`;
+
+function statusControl(row, kind) {
+  const current = clean(row.status) || "Scheduled";
+  const values = STATUS_OPTIONS.includes(current) ? STATUS_OPTIONS : [current, ...STATUS_OPTIONS];
+  const relation = row.databaseId
+    ? { databaseId: row.databaseId, databaseVersion: row.databaseVersion, currentStatus: current }
+    : {
+        kind, sourceSheet: row.sourceTab || "", sourceRow: row.sourceRow || 0,
+        shipmentNo: row.shipmentNo || "", container: row.container || "", mbl: row.mbl || "", hbl: row.hbl || "",
+        pro: row.pro || "", invoice: row.invoice || "", customer: row.customer || "", shipDate: row.shipDate || "",
+        currentStatus: row.sourceStatus || ""
+      };
+  const sheetWritable = COMPLETE_ENDPOINT && relation.sourceSheet && (kind !== "inbound" || relation.sourceRow);
+  const enabled = Boolean(row.databaseId || sheetWritable);
+  const title = enabled ? "Update status and synchronize the source" :
+    (relation.sourceSheet ? "Deploy and configure the authenticated Apps Script endpoint to enable edits" : "This row has no writable source relation");
+  const options = values.map((value) =>
+    '<option value="' + esc(value) + '"' + (value === current ? " selected" : "") + ">" + esc(value) + "</option>"
+  ).join("");
+  return '<label class="status-control" title="' + esc(title) + '">' +
+    '<span class="visually-hidden">Change status</span>' +
+    '<select class="status-select" data-status-relation="' + encodeURIComponent(JSON.stringify(relation)) + '"' +
+      (enabled ? "" : " disabled") + ">" + options + "</select>" +
+    '<span class="status-result" aria-live="polite"></span></label>';
 }
 
-async function markComplete(button) {
-  if (!COMPLETE_ENDPOINT) {
-    button.nextElementSibling.textContent = "Setup required";
-    return;
-  }
-  const result = button.nextElementSibling;
-  const relation = JSON.parse(decodeURIComponent(button.dataset.complete));
-  if (!window.confirm(`Mark ${relation.customer || relation.invoice || "this entry"} complete?`)) return;
-  button.disabled = true;
+async function updateStatus(select) {
+  const relation = JSON.parse(decodeURIComponent(select.dataset.statusRelation));
+  const result = select.parentElement.querySelector(".status-result");
+  const previous = relation.currentStatus || "";
+  const status = select.value;
+  select.disabled = true;
   result.textContent = "Saving…";
   try {
     if (relation.databaseId) {
-      await globalThis.StyleKoreanDatabase.updateShipment(relation.databaseId, relation.databaseVersion, { status: "completed" });
-      result.textContent = "Saved to database";
-      await load();
-      return;
+      const dbStatus = status.toLowerCase().replace(/\s+/g, "_");
+      await globalThis.StyleKoreanDatabase.updateShipment(relation.databaseId, relation.databaseVersion, { status: dbStatus });
+    } else {
+      if (!COMPLETE_ENDPOINT) throw new Error("Status endpoint is not configured.");
+      const response = await fetch(COMPLETE_ENDPOINT, {
+        method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ ...relation, status })
+      });
+      const data = await response.json();
+      if (!data.ok) throw new Error(data.error || "Update failed");
     }
-    const response = await fetch(COMPLETE_ENDPOINT, {
-      method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ ...relation, status: "COMPLETED" })
-    });
-    const data = await response.json();
-    if (!data.ok) throw new Error(data.error || "Update failed");
     result.textContent = "Saved";
     await load();
   } catch (error) {
     result.textContent = error.message || "Not saved";
-    button.disabled = false;
+    const fallback = STATUS_OPTIONS.includes(previous) ? previous : "Scheduled";
+    select.value = fallback;
+    select.disabled = false;
   }
 }
 
@@ -1072,14 +1173,15 @@ function renderInbound() {
       `<td><strong>${esc(r.shipmentNo) || "—"}</strong></td>` +
       `<td>${r.container
         ? (r.trackingUrl
-          ? `<a class="track-link" href="${esc(r.trackingUrl)}" target="_blank" rel="noreferrer">${esc(r.container)} ↗</a>`
-          : `<span class="mono">${esc(r.container)}</span>`)
+          ? `<a class="track-link" href="${esc(r.trackingUrl)}" target="_blank" rel="noreferrer" title="${esc(r.trackingSource || "Container tracking")}">${esc(r.container)} ↗</a>`
+          : `<span class="mono">${esc(r.container)}</span>`) +
+          (r.trackingSource ? `<small>${esc(r.trackingSource)}</small>` : "")
         : "—"}</td>` +
       `<td><small style="margin:0">${esc(r.mbl) || "—"}</small><small>${esc(r.hbl)}</small></td>` +
       `<td>${esc(r.carrier) || "—"}</td>` +
       `<td>${esc(r.origin) || "—"}</td>` +
       `<td>${esc(r.destination) || "—"}</td>` +
-      `<td>${statusPill(r.status)}</td>`;
+      `<td>${statusControl(r, "inbound")}</td>`;
     frag.appendChild(trEl);
   });
   body.appendChild(frag);
@@ -1131,10 +1233,11 @@ document.addEventListener("DOMContentLoaded", () => {
   $("inSearch").addEventListener("input", debounce(renderInbound, 120));
   $("modeFilter").addEventListener("change", renderInbound);
   $("exportCsv").addEventListener("click", exportOutboundCsv);
-  $("outRows").addEventListener("click", (event) => {
-    const button = event.target.closest(".complete-button");
-    if (button) markComplete(button);
-  });
+  const statusChange = (event) => {
+    if (event.target.matches(".status-select")) updateStatus(event.target);
+  };
+  $("outRows").addEventListener("change", statusChange);
+  $("inRows").addEventListener("change", statusChange);
 
   /* sortable outbound columns */
   const sortHeaders = [...document.querySelectorAll("#outTable th[data-sort]")];

@@ -33,9 +33,11 @@ function gviz(cols, rows) {
 
 const payloads = {
   "IMPORTS": gviz(
-    ["SHIPMENT", "INVOICE", "CONTAINER", "MBL", "HBL", "VSL", "ETA", "NOTES", "RESERVED", "DELIVERY EXPECTED"],
+    ["SHIPMENT", "INVOICE", "CONTAINER", "MBL", "HBL", "VSL", "ETA", "NOTES", "RESERVED", "DELIVERY EXPECTED", "WEBSITE STATUS"],
     [
-      ["SHP-101", "IN00455649", "TCNU1234567", "MBL777", "HBL888", "HMM GARNET", "07/25/2026", "in transit", "", ""],
+      ["SHP-101", "IN00455649", "TCNU1234567", "MBL777", "HBL888", "HMM GARNET", "07/25/2026", "in transit", "", "", ""],
+      ["MBX - USMM260714AIR", "USMM260714AIR", "", "180-20839873", "RMS2607121", "KE8209", "07/15/2026", "", "", "", "Completed"],
+      ["JSL260723 - 07-16-26", "IN00456771", "", "180-20886880", "JSL260723", "KE-213", "07/16/2026", "", "", "", "Completed"],
       ["URGENT", "COMPLETED", "ESTIMATED / CHANGED", null, null, null, null, null, null, null],
       ["AS OF 07/17", "07/20", "07/21", "07/22", "07/23", null, null, "07/24", null, null],
       ["SCHEDULED", "HJ65/CLIO - KOCU5021614", null, null, null, null, null, null, null, null],
@@ -53,7 +55,10 @@ const payloads = {
     [["07/20/2026", "NJ WAREHOUSE", "IN123", "CA SFS", "TQL", "BOL1", "4", "$350", "", "urgent"]]),
   "ULTA": gviz(
     ["SHIP DATE", "DC", "PO#", "TRUCKING", "PRO#", "TOTAL CARTONS", "SHIP TO", "RATE", "STATUS", "NOTE", "REMARKS"],
-    [["07/22/2026", "CHAMBERSBURG", "101295829", "PRIORITY1", "", "38", "95 Kriner Rd", "$568.98", "", "", ""]]),
+    [
+      ["07/22/2026", "CHAMBERSBURG", "101295829", "PRIORITY1", "", "38", "95 Kriner Rd", "$568.98", "", "", ""],
+      ["07/23/2026", "CHAMBERSBURG", "101295830", "PRIORITY1", "454-999999", "12", "95 Kriner Rd", "$300", "", "", ""]
+    ]),
   "IHERB": gviz(
     ["PU", "DELIVERY APPT", "PO#", "TRUCKING", "BOL", "QTY", "TO", "RATE", "STATUS", "NOTE", "REMARKS"],
     [["07/21/2026", "", "PO-IH-1", "RXO", "", "10", "Moreno Valley", "$400", "", "", ""]]),
@@ -118,10 +123,10 @@ require("vm").runInThisContext(fs.readFileSync(__dirname + "/app.js", "utf8"), {
 
   /* assertions */
   const assert = (cond, msg) => { if (!cond) { console.error("ASSERT FAIL: " + msg); process.exitCode = 1; } };
-  assert(out.length === 9, "expected 9 outbound rows, got " + out.length);
+  assert(out.length === 10, "expected 10 outbound rows, got " + out.length);
   assert(!out.some((r) => r.pro === "PROX"), "exclusion row leaked");
   assert(!out.some((r) => r.customer === "NO DATE"), "undated National Order Progress row leaked");
-  assert(g('classifyStatus("shipped")') === "Completed", "shipped was not completed");
+  assert(g('classifyStatus("shipped")') === "Shipped", "shipped status was not preserved");
   assert(g('classifyStatus("done")') === "Completed", "done was not completed");
   assert(g('classifyStatus("greyed out")') === "Completed", "explicit greyed-out marker was not completed");
   assert(g('effectiveStatus({ AUXILIARY: "done" }, "Scheduled")') === "Completed", "completion marker outside the mapped status column was missed");
@@ -136,7 +141,13 @@ require("vm").runInThisContext(fs.readFileSync(__dirname + "/app.js", "utf8"), {
   assert(!out.some((r) => r.customer === "Account" || r.invoice === "Order/PO#"), "placeholder rows leaked");
   assert(out.some((r) => r.source === "TJX/ROSS" && r.customer === "ROSS 120K" && r.invoice === "11603077"), "TJX/ROSS carry-forward failed");
   assert(out.some((r) => r.source === "National Ship Out" && r.units === "5 Pallets"), "National Ship Out mapping failed");
-  assert(g("inboundRows").length === 6 && g("inboundRows")[0].container === "TCNU1234567", "inbound planning merge failed");
+  assert(g("inboundRows").length === 8 && g("inboundRows")[0].container === "TCNU1234567", "inbound planning merge failed");
+  assert(!g("activeInbound()").some((r) => /USMM260714AIR|JSL260723/.test(r.shipmentNo)), "completed grey air rows leaked into active inbound");
+  assert(out.some((r) => r.source === "Ulta" && r.pro === "454-999999" && r.status === "Shipped"), "ULTA PRO# was not treated as shipped");
+  assert(g('containerTrackingProfile({ SCAC: "HDMU" }, "HMMU6453703", "LA / Long Beach").source') === "HMM official", "HMM official tracking priority failed");
+  assert(g('containerTrackingProfile({}, "MSKU1980420", "LA / Long Beach").source') === "Maersk official", "Maersk prefix tracking priority failed");
+  assert(g('containerTrackingProfile({}, "ZZZU1234567", "LA / Long Beach").source') === "LA/LB Port Optimizer", "destination port fallback failed");
+  assert(g('containerTrackingProfile({}, "ZZZU1234567", "Oakland").source') === "Track-Trace fallback", "third-party fallback failed");
   assert(g("inboundRows").some((r) => r.container === "KOCU5021614" && r.status === "Scheduled" && r.eta === "07/20/26"), "scheduled planning entry was not parsed");
   assert(g("inboundRows").some((r) => r.container === "MSKU1980420" && r.status === "Scheduled" && r.eta === "07/25/26"), "estimated planning entry was not parsed");
   assert(g("activeInbound()").some((r) => r.container === "KOCU5021614"), "HJ65 scheduled planning entry missing from active inbound");
@@ -152,7 +163,7 @@ require("vm").runInThisContext(fs.readFileSync(__dirname + "/app.js", "utf8"), {
   assert(g("costSummary").ytd === 123456 && g("costSummary").mtd === 7890, "KPI block override failed");
   assert(g("sourceHealth").length === 11, "expected 11 sources tracked");
   assert(g("integrationSnapshot()").totals.online === 11, "integration health online count failed");
-  assert(g("integrationSnapshot()").platformVersion === "1.0.0", "platform manifest was not loaded");
+  assert(g("integrationSnapshot()").platformVersion === "1.2.0", "platform manifest was not loaded");
   assert(els["metrics"].innerHTML.includes("cost-scheduled") && els["metrics"].innerHTML.includes("cost-ytd") && els["metrics"].innerHTML.includes("cost-mtd"), "distinct cost metric styles missing");
   assert(!els["metrics"].innerHTML.includes("<small>"), "KPI notes still rendered");
   g(`applyDatabaseShipments([{
@@ -163,6 +174,6 @@ require("vm").runInThisContext(fs.readFileSync(__dirname + "/app.js", "utf8"), {
   }])`);
   assert(g("outboundRows").length === 1 && g("outboundRows")[0].databaseId === "db-1", "database shipment adapter failed");
   assert(g("outboundRows")[0].shipDate === "07/28/26" && g("outboundRows")[0].status === "Shipping", "database normalization failed");
-  assert(g("completeAction(outboundRows[0])").includes("databaseId"), "database completion action missing");
+  assert(g('statusControl(outboundRows[0], "outbound")').includes("databaseId") && g('statusControl(outboundRows[0], "outbound")').includes("status-select"), "database status selector missing");
   console.log(process.exitCode ? "SMOKE TEST FAILED" : "SMOKE TEST PASSED ✔");
 })().catch((e) => { console.error("FAIL", e); process.exit(1); });
