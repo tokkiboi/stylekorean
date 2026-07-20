@@ -285,12 +285,6 @@ function mapInboundPlanningGrid(table) {
     if (date) topDates.set(column, date);
   });
 
-  const sectionHeaders = new Map();
-  (rows[marker]?.c || []).forEach((_, column) => {
-    const value = rawCell(rows[marker], column).toUpperCase();
-    if (value) sectionHeaders.set(column, value);
-  });
-
   let phase = "";
   const phaseDates = new Map();
   const planned = [];
@@ -317,7 +311,6 @@ function mapInboundPlanningGrid(table) {
         .replace(/\s*-\s*$/, "")
         .trim();
       const eta = (phase === "needs-scheduling" ? phaseDates.get(column) : "") || topDates.get(column) || "";
-      const completed = phase === "scheduled" && /COMPLETED/.test(sectionHeaders.get(column) || "");
       planned.push({
         mode: "Ocean",
         eta,
@@ -329,7 +322,9 @@ function mapInboundPlanningGrid(table) {
         trackingUrl: `https://www.searates.com/container/tracking/?container=${encodeURIComponent(container)}`,
         origin: "IMPORTS planning grid",
         destination: "LA / Long Beach",
-        status: completed ? "Completed" : "Scheduled"
+        /* The row state is authoritative. A column heading such as COMPLETED
+           describes the planner lane/date, not every shipment beneath it. */
+        status: classifyStatus(value)
       });
     });
   }
