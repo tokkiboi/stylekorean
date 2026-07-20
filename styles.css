@@ -399,3 +399,15 @@ th[data-sort].sorted.desc::after { content: "↓"; }
   .filters { grid-template-columns: 1fr 1fr; }
   .filters .search-field { grid-column: 1 / -1; }
 }
+
+
+/* Interactive relational status editor */
+.status-control { display:grid; gap:4px; min-width:148px; }
+.status-select {
+  width:100%; min-height:34px; padding:6px 28px 6px 9px;
+  border:1px solid var(--line); border-radius:8px; background:var(--paper);
+  color:var(--ink); font:600 12px/1.2 "Archivo", sans-serif;
+}
+.status-select:focus { outline:2px solid color-mix(in srgb, var(--orange) 40%, transparent); outline-offset:1px; }
+.status-select:disabled { cursor:not-allowed; opacity:.58; background:var(--paper-2); }
+.status-result { min-height:14px; color:var(--steel); font:500 10px/1.2 "IBM Plex Mono", monospace; }
