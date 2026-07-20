@@ -178,10 +178,15 @@ button { font-family: inherit; cursor: pointer; }
 .metric-card span.label { font-family: var(--font-mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--steel); }
 .metric-card strong { font-family: var(--font-display); font-size: 34px; font-weight: 800; line-height: 1; letter-spacing: .01em; }
 .metric-card small { color: var(--steel); font-size: 11px; }
-.metric-card.accent { background: var(--ink); border-color: var(--ink); color: #EDF3F5; }
-.metric-card.accent span.label { color: #93ACB5; }
-.metric-card.accent strong { color: var(--accent); }
-.metric-card.accent small { color: #93ACB5; }
+.metric-card.cost-scheduled { background: #FFE8DA; border-color: #F3C2A8; }
+.metric-card.cost-scheduled span.label { color: #805442; }
+.metric-card.cost-scheduled strong { color: #A74720; }
+.metric-card.cost-ytd { background: #EEE8FF; border-color: #CEC2F1; }
+.metric-card.cost-ytd span.label { color: #665B83; }
+.metric-card.cost-ytd strong { color: #5C469D; }
+.metric-card.cost-mtd { background: #DFF5EC; border-color: #B5DDCF; }
+.metric-card.cost-mtd span.label { color: #3C6E61; }
+.metric-card.cost-mtd strong { color: #176A52; }
 
 /* ═══════════ 14-DAY BOARDS ═══════════ */
 .board-host { overflow-x: auto; border-top: 1px solid var(--line); scrollbar-width: thin; }

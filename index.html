@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://docs.google.com">
 <link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;700;800&family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20260720-2">
+<link rel="stylesheet" href="styles.css?v=20260720-3">
 </head>
 <body>
 <main class="shell">
@@ -39,45 +39,13 @@
     </div>
   </header>
 
-  <!-- ══════════ SOURCE STRIP ══════════ -->
-  <section class="panel" aria-labelledby="sourcesHead">
-    <div class="panel-head">
-      <div><p class="eyebrow" id="sourcesHead">Workbook sources</p><h2>Eleven live feeds</h2></div>
-      <span class="badge-count" id="sourceOkCount">—</span>
-    </div>
-    <div id="sourceStrip" class="source-strip"></div>
-  </section>
-
-  <section class="panel integration-panel" aria-labelledby="integrationHead">
-    <div class="panel-head">
-      <div><p class="eyebrow">Platform control center</p><h2 id="integrationHead">Source integration health</h2><p class="panel-sub">Connectivity, coverage, freshness, and record volume across the unified logistics platform.</p></div>
-      <button id="exportHealth" class="btn-mini" type="button">⭳ Health JSON</button>
-    </div>
-    <div class="database-bar">
-      <div id="databaseStatus"><strong>Checking database…</strong></div>
-      <form id="databaseSignIn" class="database-sign-in" hidden>
-        <label><span class="visually-hidden">Member email</span><input name="email" type="email" placeholder="name@stylekoreanus.com" required></label>
-        <button class="btn-mini" type="submit">Member sign in</button>
-        <span id="databaseResult" aria-live="polite"></span>
-      </form>
-      <button id="databaseSignOut" class="btn-mini" type="button" hidden>Sign out</button>
-    </div>
-    <div id="integrationSummary" class="integration-summary" aria-live="polite"></div>
-    <div class="table-wrap integration-table-wrap">
-      <table class="data-table integration-table">
-        <thead><tr><th>Source</th><th>Provider</th><th>Role</th><th>Range</th><th>Records</th><th>State</th><th>Source data</th></tr></thead>
-        <tbody id="integrationRows"></tbody>
-      </table>
-    </div>
-  </section>
-
   <!-- ══════════ METRICS ══════════ -->
   <section id="metrics" class="metrics" aria-label="Key metrics"></section>
 
   <!-- ══════════ INBOUND 14-DAY ══════════ -->
   <section class="panel" aria-labelledby="inEtaHead">
     <div class="panel-head">
-      <div><p class="eyebrow">Next 14 days</p><h2 id="inEtaHead">Upcoming inbound ETA</h2><p class="panel-sub">Detailed shipments plus the IMPORTS planning grid — completed and delivered rows excluded.</p></div>
+      <div><p class="eyebrow">Next 14 days</p><h2 id="inEtaHead">Upcoming inbound ETA</h2></div>
       <span class="side-badge">Inbound</span>
     </div>
     <div id="inboundBoard" class="board-host"></div>
@@ -86,7 +54,7 @@
   <!-- ══════════ OUTBOUND 14-DAY ══════════ -->
   <section class="panel" aria-labelledby="outEtaHead">
     <div class="panel-head">
-      <div><p class="eyebrow">Next 14 days</p><h2 id="outEtaHead">Upcoming outbound schedule</h2><p class="panel-sub">Active orders by ship date, colored by source tab.</p></div>
+      <div><p class="eyebrow">Next 14 days</p><h2 id="outEtaHead">Upcoming outbound schedule</h2></div>
       <span class="side-badge badge-out">Outbound</span>
     </div>
     <div id="outboundBoard" class="board-host"></div>
@@ -134,7 +102,7 @@
   <!-- ══════════ SMALL PARCEL ══════════ -->
   <section class="panel" aria-labelledby="parcelHead">
     <div class="panel-head">
-      <div><p class="eyebrow">UPS · FedEx · USPS · DHL · Amazon</p><h2 id="parcelHead">Active small-parcel tracking</h2><p class="panel-sub">Track active parcels from the IMPORTS tab. Delivered and received shipments are excluded.</p></div>
+      <div><p class="eyebrow">UPS · FedEx · USPS · DHL · Amazon</p><h2 id="parcelHead">Active small-parcel tracking</h2></div>
       <span class="badge-count" id="parcelCount">0</span>
     </div>
     <div id="parcelGrid" class="parcel-grid"></div>
@@ -142,8 +110,7 @@
 
   <div id="setupNotice" class="setup-notice hidden">
     <strong>Can't reach the workbook.</strong> Check that LOGISTICS MASTER 2026 is link-readable
-    (Share → Anyone with the link → Viewer). Each source loads independently — the source strip above
-    shows exactly which tab failed.
+    (Share → Anyone with the link → Viewer). Each source loads independently.
   </div>
 
   <footer>
@@ -156,6 +123,6 @@
 <script src="database-client.js?v=20260720-1"></script>
 <script src="platform-config.js?v=20260720-1"></script>
 <script src="site-config.js?v=20260720-1"></script>
-<script src="app.js?v=20260720-3"></script>
+<script src="app.js?v=20260720-4"></script>
 </body>
 </html>
