@@ -231,7 +231,7 @@ button { font-family: inherit; cursor: pointer; }
 
 /* ═══════════ TABLES ═══════════ */
 .table-wrap { overflow: auto; max-height: 640px; border-top: 1px solid var(--line); }
-.data-table { width: 100%; border-collapse: collapse; min-width: 1150px; }
+.data-table { width: 100%; border-collapse: collapse; min-width: 1280px; }
 .data-table th {
   position: sticky; top: 0; z-index: 2;
   padding: 11px 14px;
