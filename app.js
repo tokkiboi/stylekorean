@@ -199,6 +199,7 @@ function parcelTrackingUrl(carrier, num) {
     case "FedEx": return `https://www.fedex.com/fedextrack/?trknbr=${n}`;
     case "USPS":  return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${n}`;
     case "DHL":   return `https://www.dhl.com/us-en/home/tracking.html?tracking-id=${n}`;
+    case "Amazon": return `https://track.amazon.com/tracking/${n}`;
     default:      return "";
   }
 }
@@ -267,9 +268,10 @@ function mapParcels(table) {
     const carrier = inferParcelCarrier(section, num);
     if (!carrier) continue;
     const detail = rawCell(row, 4);
-    let status = classifyStatus(detail);
+    const rowText = (row.c || []).map((_, i) => rawCell(row, i)).join(" ");
+    let status = classifyStatus(rowText);
     if (/label created|not shipped/i.test(detail)) status = "Scheduled";
-    else if (/pending|clearance|customs|waiting|transit/i.test(detail)) status = "Shipping";
+    else if (!FINISHED.has(status) && /pending|clearance|customs|waiting|transit/i.test(rowText)) status = "Shipping";
     result.push({
       carrier,
       tracking: num,
@@ -282,6 +284,10 @@ function mapParcels(table) {
     });
   }
   return result;
+}
+
+function activeParcels() {
+  return parcelRows.filter((row) => !FINISHED.has(row.status));
 }
 
 /* ---------- outbound mappers (one per source tab) ---------- */
@@ -637,7 +643,7 @@ function renderMetrics() {
     ["Active outbound", active.length.toLocaleString(), "Finished & cancelled excluded", ""],
     ["Finished outbound", costSummary.finished.toLocaleString(), "Shipped · done · received · delivered · cancelled", ""],
     ["Inbound active", activeInbound().length.toLocaleString(), "Ocean + air shipments", ""],
-    ["Small parcel", parcelRows.length.toLocaleString(), "From IMPORTS parcel sections", ""],
+    ["Small parcel", activeParcels().length.toLocaleString(), "Active tracking · delivered and received excluded", ""],
     ["Scheduled outbound cost", `$${Math.round(scheduledCost).toLocaleString()}`, "Active rows with a charge", "accent"],
     ["YTD shipping cost", `$${Math.round(costSummary.ytd).toLocaleString()}`, costSummary.kpiSource === "workbook" ? "From protected KPI block" : "Computed from source rows", "accent"],
     ["MTD shipping cost", `$${Math.round(costSummary.mtd).toLocaleString()}`, costSummary.kpiSource === "workbook" ? "From protected KPI block" : "Computed from source rows", "accent"],
@@ -859,10 +865,10 @@ function renderInbound() {
 }
 
 function renderParcels() {
-  const active = parcelRows.filter((r) => !FINISHED.has(r.status));
+  const active = activeParcels();
   const shown = active.slice(0, 24);
   $("parcelCount").textContent = `${active.length.toLocaleString()} active`;
-  const hidden = parcelRows.length - shown.length;
+  const hidden = active.length - shown.length;
   $("parcelGrid").innerHTML = shown.length ? shown.map((p) => `
     <article class="parcel-card">
       <div class="parcel-top">
@@ -877,7 +883,7 @@ function renderParcels() {
       </div>
     </article>`).join("") +
     (hidden > 0 ? `<p class="parcel-more">+ ${hidden} more parcel${hidden === 1 ? "" : "s"} in the IMPORTS tab — open the Google Sheet for the full list.</p>` : "")
-    : `<p style="color:var(--steel);padding:6px 0 14px;">No small-parcel rows found in the IMPORTS tab.</p>`;
+    : `<p style="color:var(--steel);padding:6px 0 14px;">No active small-parcel shipments. Delivered and received parcels are excluded.</p>`;
 }
 
 function renderAll() {
