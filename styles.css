@@ -140,6 +140,13 @@ button { font-family: inherit; cursor: pointer; }
 
 /* ═══════════ INTEGRATION CONTROL CENTER ═══════════ */
 .integration-panel { overflow: hidden; }
+.database-bar { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 0 24px 16px; padding: 13px 16px; border: 1px solid #B9CDD4; border-left: 5px solid var(--ink-2); border-radius: 9px; background: #F7FAFB; }
+.database-bar strong, .database-bar span { display: block; }
+.database-bar strong { font-size: 13px; }
+.database-bar span { margin-top: 2px; color: var(--steel); font-size: 11px; }
+.database-sign-in { display: flex; align-items: center; gap: 8px; }
+.database-sign-in[hidden] { display: none !important; }
+.database-sign-in input { min-height: 42px; width: 240px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; font: 500 12px var(--font-body); }
 .integration-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -322,6 +329,9 @@ footer strong { display: inline-block; margin-right: 6px; padding: 3px 7px; bord
   .filters { grid-template-columns: 1fr; }
   .side-badge { display: none; }
   .integration-summary { grid-template-columns: repeat(2, 1fr); margin-inline: 16px; }
+  .database-bar { margin-inline: 16px; align-items: stretch; flex-direction: column; }
+  .database-sign-in { align-items: stretch; flex-direction: column; }
+  .database-sign-in input { width: 100%; }
   .integration-summary > div:nth-child(2) { border-right: 0; }
   .integration-summary > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
 }

@@ -559,6 +559,53 @@ function mapAllOutbound(tabs, excludedFn) {
   });
 }
 
+function databaseStatus(value) {
+  const label = clean(value).toLowerCase();
+  return ({ delivered: "Delivered", received: "Received", completed: "Completed", cancelled: "Cancelled", shipping: "Shipping", exception: "Shipping" })[label] || "Scheduled";
+}
+
+function databaseDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? fmtDate(value) : `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}/${String(date.getFullYear()).slice(-2)}`;
+}
+
+function applyDatabaseShipments(records) {
+  inboundRows = [];
+  outboundRows = [];
+  parcelRows = [];
+  records.forEach((record) => {
+    const base = {
+      databaseId: record.id, databaseVersion: record.version,
+      status: databaseStatus(record.status), carrier: clean(record.carrier),
+      origin: clean(record.origin), destination: clean(record.destination)
+    };
+    if (record.direction === "outbound") {
+      outboundRows.push({
+        ...base, source: record.sources?.label || record.sources?.source_key || "Database",
+        sourceTab: "", shipDate: databaseDate(record.scheduled_at), customer: clean(record.customer),
+        invoice: clean(record.invoice_number || record.order_number), pro: clean(record.tracking_number),
+        units: [record.pallets ? `${record.pallets} Pallets` : "", record.cartons ? `${record.cartons} Cartons` : ""].filter(Boolean).join(" · "),
+        qty: clean(record.quantity), length: "", width: "", height: "", weight: clean(record.weight_lbs),
+        rate: Number(record.rate || 0)
+      });
+    } else if (record.direction === "parcel") {
+      parcelRows.push({
+        ...base, tracking: clean(record.tracking_number), invoice: clean(record.invoice_number),
+        eta: databaseDate(record.eta_at), note: clean(record.notes) || "Database synchronized",
+        url: parcelTrackingUrl(record.carrier, record.tracking_number)
+      });
+    } else {
+      inboundRows.push({
+        ...base, mode: clean(record.mode) || "Ocean", eta: databaseDate(record.eta_at),
+        shipmentNo: clean(record.shipment_number), mbl: clean(record.raw?.mbl), hbl: clean(record.raw?.hbl),
+        container: clean(record.container_number),
+        trackingUrl: record.container_number ? `https://www.searates.com/container/tracking/?container=${encodeURIComponent(record.container_number)}` : ""
+      });
+    }
+  });
+}
+
 /* merge same-customer rows shipping within 3 days into one line */
 function consolidate(rows) {
   const groups = new Map();
@@ -646,6 +693,14 @@ async function load() {
     inboundRows = mergeInboundPlanning(mapInbound(im), mapInboundPlanningGrid(tables[0]));
     parcelRows = mapParcels(tables[0]);
     mapAllOutbound({ tr, ul, ih, b2, wh, national, shipOut, tjxRoss }, excludedFn);
+    if (globalThis.STYLEKOREAN_DATABASE?.preferDatabase && globalThis.StyleKoreanDatabase?.configured()) {
+      try {
+        const databaseRows = await globalThis.StyleKoreanDatabase.listShipments();
+        if (databaseRows.length) applyDatabaseShipments(databaseRows);
+      } catch (databaseError) {
+        console.warn("Database read unavailable — retaining Google Sheets snapshot.", databaseError);
+      }
+    }
 
     /* cost summary: computed first, then overridden by the protected KPI
        block whose Sheets formulas cover the full dataset */
@@ -926,6 +981,10 @@ function renderOutbound() {
 
 function completeAction(row) {
   if (FINISHED.has(row.status)) return '<span class="complete-done">Completed</span>';
+  if (row.databaseId) {
+    const relation = encodeURIComponent(JSON.stringify({ databaseId: row.databaseId, databaseVersion: row.databaseVersion, customer: row.customer, invoice: row.invoice }));
+    return `<button class="complete-button" type="button" data-complete="${relation}" title="Mark this synchronized database entry completed">Mark complete</button><span class="complete-result" aria-live="polite"></span>`;
+  }
   if (!row.sourceTab) return '<span class="complete-unavailable" title="This source does not expose a writable status field">Source only</span>';
   const relation = encodeURIComponent(JSON.stringify({
     kind: "outbound", sourceSheet: row.sourceTab, pro: row.pro || "",
@@ -946,6 +1005,12 @@ async function markComplete(button) {
   button.disabled = true;
   result.textContent = "Saving…";
   try {
+    if (relation.databaseId) {
+      await globalThis.StyleKoreanDatabase.updateShipment(relation.databaseId, relation.databaseVersion, { status: "completed" });
+      result.textContent = "Saved to database";
+      await load();
+      return;
+    }
     const response = await fetch(COMPLETE_ENDPOINT, {
       method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({ ...relation, status: "COMPLETED" })
