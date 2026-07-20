@@ -17,6 +17,11 @@
 const SHEET_ID = "1M-vZ24Yw4ZN7R7b_473cVn8kny8DznTakSsD3VQsCzc";
 const FINISHED = new Set(["Delivered", "Received", "Completed", "Cancelled"]);
 const PARCEL_SECTIONS = /^(UPS|USPS|DHL|AMAZON|FEDEX)$/i;
+/* Carrier-confirmed exception while the source status cell remains blank.
+   DHL Express 4634189291: delivered 07/17/2026 11:45 AM PT, Buena Park CA. */
+const PARCEL_STATUS_OVERRIDES = new Map([
+  ["4634189291", "Delivered"]
+]);
 const PLANNING_LABELS = /^(URGENT|SCHEDULED|NEED SCHEDULING|COMPLETED)$/i;
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const COMPLETE_ENDPOINT = String(globalThis.STYLEKOREAN_CONFIG?.completeEndpoint || "").trim();
@@ -371,6 +376,7 @@ function mapParcels(table) {
     let status = classifyStatus(rowText);
     if (/label created|not shipped/i.test(detail)) status = "Scheduled";
     else if (!FINISHED.has(status) && /pending|clearance|customs|waiting|transit/i.test(rowText)) status = "Shipping";
+    status = PARCEL_STATUS_OVERRIDES.get(num.replace(/\s/g, "").toUpperCase()) || status;
     result.push({
       carrier,
       tracking: num,
