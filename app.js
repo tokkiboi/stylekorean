@@ -14,19 +14,16 @@
 "use strict";
 
 /* ---------- constants & state ---------- */
-const SHEET_ID = "1M-vZ24Yw4ZN7R7b_473cVn8kny8DznTakSsD3VQsCzc";
-const FINISHED = new Set(["Delivered", "Received", "Completed", "Cancelled"]);
+const PLATFORM = globalThis.STYLEKOREAN_PLATFORM || {};
+const SHEET_ID = PLATFORM.workbook?.id || "1M-vZ24Yw4ZN7R7b_473cVn8kny8DznTakSsD3VQsCzc";
+const FINISHED = new Set(PLATFORM.finishedStatuses || ["Delivered", "Received", "Completed", "Cancelled"]);
 const PARCEL_SECTIONS = /^(UPS|USPS|DHL|AMAZON|FEDEX)$/i;
-/* Carrier-confirmed exception while the source status cell remains blank.
-   DHL Express 4634189291: delivered 07/17/2026 11:45 AM PT, Buena Park CA. */
-const PARCEL_STATUS_OVERRIDES = new Map([
-  ["4634189291", "Delivered"]
-]);
+const PARCEL_STATUS_OVERRIDES = new Map(Object.entries(PLATFORM.parcelStatusOverrides || {}));
 const PLANNING_LABELS = /^(URGENT|SCHEDULED|NEED SCHEDULING|COMPLETED)$/i;
-const AUTO_REFRESH_MS = 10 * 60 * 1000;
+const AUTO_REFRESH_MS = Number(PLATFORM.refreshMs) || 10 * 60 * 1000;
 const COMPLETE_ENDPOINT = String(globalThis.STYLEKOREAN_CONFIG?.completeEndpoint || "").trim();
 
-const SOURCES = [
+const FALLBACK_SOURCES = [
   { tab: "IMPORTS",                    range: "A:AD", kind: "inbound",  gid: 1497250700 },
   { tab: "TRANSFERS",                  range: "A:N",  kind: "outbound", gid: 1834454901 },
   { tab: "ULTA",                       range: "A:N",  kind: "outbound", gid: 360479919 },
@@ -38,7 +35,8 @@ const SOURCES = [
   { tab: "TJX/ROSS DIMENSION",         range: "A:R",  kind: "outbound", gid: 1110009873 },
   { tab: "OUTBOUND WEBSITE EXCLUSIONS", range: "A:C", kind: "filter",  gid: 2026071701 }
 ];
-const KPI_SOURCE = { tab: "All Outbound Shipping Schedule", range: "Z1:AA5", kind: "kpi", gid: 20260708 };
+const SOURCES = PLATFORM.sources?.length ? [...PLATFORM.sources] : FALLBACK_SOURCES;
+const KPI_SOURCE = PLATFORM.kpiSource || { tab: "All Outbound Shipping Schedule", range: "Z1:AA5", kind: "kpi", gid: 20260708 };
 
 const SOURCE_COLORS = {
   "WH Trucking Request": "var(--c-wh)",
@@ -683,12 +681,19 @@ async function load() {
     /* per-source health for the source strip */
     const contributed = [im, tr, ul, ih, b2, wh, national, shipOut, tjxRoss, exclusions]
       .map((rows) => rows.filter(useful).length);
+    const checkedAt = new Date().toISOString();
     sourceHealth = SOURCES.map((s, i) => ({
-      tab: s.tab, kind: s.kind, gid: s.gid,
+      id: s.id || s.tab, tab: s.tab, range: s.range, kind: s.kind, gid: s.gid,
+      provider: s.provider || "googleSheets", checkedAt,
       ok: results[i].status === "fulfilled",
-      rows: contributed[i]
+      rows: contributed[i],
+      error: results[i].status === "rejected" ? results[i].reason?.message || "Unavailable" : ""
     }));
-    sourceHealth.push({ tab: "All Outbound KPI block", kind: "kpi", gid: KPI_SOURCE.gid, ok: kpiOk, rows: kpiOk ? 4 : 0 });
+    sourceHealth.push({
+      id: KPI_SOURCE.id || "outbound-kpis", tab: "All Outbound KPI block", range: KPI_SOURCE.range,
+      kind: "kpi", provider: KPI_SOURCE.provider || "googleSheets", gid: KPI_SOURCE.gid,
+      checkedAt, ok: kpiOk, rows: kpiOk ? 4 : 0, error: kpiOk ? "" : "KPI source unavailable"
+    });
 
     const failed = sourceHealth.filter((s) => !s.ok).map((s) => s.tab);
     renderAll();
@@ -739,6 +744,57 @@ function renderSourceStrip() {
       <span><span class="name">${esc(s.tab)}</span><span class="source-open" aria-hidden="true">↗</span><br><span class="rows">${s.ok ? `${s.rows.toLocaleString()} rows` : "unavailable"}</span></span>
     </a>`;
   }).join("");
+}
+
+function integrationSnapshot() {
+  return {
+    platformVersion: PLATFORM.version || "legacy",
+    generatedAt: new Date().toISOString(),
+    workbook: PLATFORM.workbook?.label || "LOGISTICS MASTER 2026",
+    sources: sourceHealth,
+    totals: {
+      configured: sourceHealth.length,
+      online: sourceHealth.filter((source) => source.ok).length,
+      records: sourceHealth.reduce((sum, source) => sum + Number(source.rows || 0), 0),
+      activeShipments: activeOutbound().length + activeInbound().length + activeParcels().length,
+      inbound: activeInbound().length,
+      outbound: activeOutbound().length,
+      parcels: activeParcels().length
+    }
+  };
+}
+
+function renderIntegrationHealth() {
+  const snapshot = integrationSnapshot();
+  const summary = [
+    ["Sources online", `${snapshot.totals.online}/${snapshot.totals.configured}`],
+    ["Source records", snapshot.totals.records.toLocaleString()],
+    ["Active shipments", snapshot.totals.activeShipments.toLocaleString()],
+    ["Platform", `v${snapshot.platformVersion}`]
+  ];
+  $("integrationSummary").innerHTML = summary.map(([label, value]) =>
+    `<div><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`
+  ).join("");
+  $("integrationRows").innerHTML = sourceHealth.map((source) => {
+    const provider = PLATFORM.providers?.[source.provider]?.label || source.provider || "Google Sheets";
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit#gid=${source.gid}`;
+    return `<tr>
+      <td><strong>${esc(source.tab)}</strong>${source.error ? `<small>${esc(source.error)}</small>` : ""}</td>
+      <td>${esc(provider)}</td><td>${esc(source.kind)}</td><td class="mono">${esc(source.range || "—")}</td>
+      <td class="mono">${Number(source.rows || 0).toLocaleString()}</td>
+      <td><span class="integration-state ${source.ok ? "online" : "offline"}">${source.ok ? "Online" : "Offline"}</span></td>
+      <td><a class="track-link" href="${url}" target="_blank" rel="noopener noreferrer">Open ↗</a></td>
+    </tr>`;
+  }).join("");
+}
+
+function exportIntegrationHealth() {
+  const blob = new Blob([JSON.stringify(integrationSnapshot(), null, 2)], { type: "application/json" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `stylekorean-integration-health-${new Date().toISOString().slice(0, 10)}.json`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 5000);
 }
 
 function renderMetrics() {
@@ -993,6 +1049,7 @@ function renderParcels() {
 
 function renderAll() {
   renderSourceStrip();
+  renderIntegrationHealth();
   renderMetrics();
   renderBoards();
   populateFilters();
@@ -1009,6 +1066,7 @@ function debounce(fn, ms) {
 
 document.addEventListener("DOMContentLoaded", () => {
   $("refresh").addEventListener("click", () => load());
+  $("exportHealth").addEventListener("click", exportIntegrationHealth);
   $("outSearch").addEventListener("input", debounce(renderOutbound, 120));
   $("srcFilter").addEventListener("change", renderOutbound);
   $("outStatus").addEventListener("change", renderOutbound);

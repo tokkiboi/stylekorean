@@ -20,6 +20,8 @@ global.document = {
 global.window = global;
 global.setInterval = () => {};
 
+require("vm").runInThisContext(fs.readFileSync(__dirname + "/platform-config.js", "utf8"), { filename: "platform-config.js" });
+
 function gviz(cols, rows) {
   return "x(" + JSON.stringify({
     table: {
@@ -148,6 +150,9 @@ require("vm").runInThisContext(fs.readFileSync(__dirname + "/app.js", "utf8"), {
   assert(!els["parcelGrid"].innerHTML.includes("9400111899223856928499") && !els["parcelGrid"].innerHTML.includes("TBA319137765870") && !els["parcelGrid"].innerHTML.includes("4634189291"), "completed parcel rendered");
   assert(g("costSummary").ytd === 123456 && g("costSummary").mtd === 7890, "KPI block override failed");
   assert(g("sourceHealth").length === 11, "expected 11 sources tracked");
+  assert(g("integrationSnapshot()").totals.online === 11, "integration health online count failed");
+  assert(g("integrationSnapshot()").platformVersion === "1.0.0", "platform manifest was not loaded");
+  assert(els["integrationRows"].innerHTML.includes("Google Sheets") && els["integrationRows"].innerHTML.includes("Online"), "integration health table did not render");
   assert(els["sourceStrip"].innerHTML.includes("#gid=1497250700"), "IMPORTS source link missing");
   assert(els["sourceStrip"].innerHTML.includes("noopener noreferrer"), "source links are not safely opened");
   console.log(process.exitCode ? "SMOKE TEST FAILED" : "SMOKE TEST PASSED ✔");
