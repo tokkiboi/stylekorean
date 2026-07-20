@@ -43,7 +43,8 @@ const payloads = {
       ["UPS", null, null, null, null, null, null, null, null, null],
       [null, "1Z999AA10123456784", "IN00456708", "Seoul", "label created, not shipped", null, null, null, null, null],
       [null, "9400111899223856928499", "IN00456709", "Seoul", "signed by dock", "Delivered", null, null, null, null],
-      [null, "TBA319137765870", "IN00456710", "Seoul", "front office", "", "Received", null, null, null]
+      [null, "TBA319137765870", "IN00456710", "Seoul", "front office", "", "Received", null, null, null],
+      ["DHL", "4634189291", "IN00456711", "Seoul", "", null, null, null, null, null]
     ]),
   "TRANSFERS": gviz(
     ["PU", "TO", "INVOICE", "VENDOR", "TRUCKING", "BOL#", "PLT", "RATE", "STATUS", "NOTE"],
@@ -138,12 +139,13 @@ require("vm").runInThisContext(fs.readFileSync(__dirname + "/app.js", "utf8"), {
   assert(g("inboundRows").some((r) => r.container === "MSKU1980420" && r.status === "Scheduled" && r.eta === "07/25/26"), "estimated planning entry was not parsed");
   assert(!g("activeInbound()").some((r) => r.container === "KOCU5021614"), "completed planning entry leaked into active inbound");
   assert(g("activeInbound()").some((r) => r.container === "MSKU1980420"), "estimated planning entry missing from active inbound");
-  assert(g("parcelRows").length === 3 && g("parcelRows")[0].carrier === "UPS" && g("parcelRows")[0].status === "Scheduled", "parcel parse failed");
+  assert(g("parcelRows").length === 4 && g("parcelRows")[0].carrier === "UPS" && g("parcelRows")[0].status === "Scheduled", "parcel parse failed");
+  assert(g("parcelRows").some((r) => r.tracking === "4634189291" && r.status === "Delivered"), "verified DHL delivery override missing");
   assert(g("activeParcels()").length === 1, "delivered or received parcel leaked into active tracking");
   assert(g("activeParcels()")[0].tracking === "1Z999AA10123456784", "wrong parcel remained active");
   assert(g('parcelTrackingUrl("Amazon", "TBA319137765870")') === "https://track.amazon.com/tracking/TBA319137765870", "Amazon tracking link missing");
   assert(els["parcelCount"].textContent === "1 active", "parcel count includes completed shipments");
-  assert(!els["parcelGrid"].innerHTML.includes("9400111899223856928499") && !els["parcelGrid"].innerHTML.includes("TBA319137765870"), "completed parcel rendered");
+  assert(!els["parcelGrid"].innerHTML.includes("9400111899223856928499") && !els["parcelGrid"].innerHTML.includes("TBA319137765870") && !els["parcelGrid"].innerHTML.includes("4634189291"), "completed parcel rendered");
   assert(g("costSummary").ytd === 123456 && g("costSummary").mtd === 7890, "KPI block override failed");
   assert(g("sourceHealth").length === 11, "expected 11 sources tracked");
   assert(els["sourceStrip"].innerHTML.includes("#gid=1497250700"), "IMPORTS source link missing");
