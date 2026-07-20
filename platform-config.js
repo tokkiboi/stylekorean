@@ -3,7 +3,7 @@
 /* Central integration manifest. Authenticated providers must use a private
    server-side endpoint; never place credentials in this public file. */
 window.STYLEKOREAN_PLATFORM = Object.freeze({
-  version: "1.0.0",
+  version: "1.2.0",
   refreshMs: 10 * 60 * 1000,
   providers: Object.freeze({
     googleSheets: Object.freeze({ label: "Google Sheets", access: "Public read-only" }),
@@ -13,10 +13,10 @@ window.STYLEKOREAN_PLATFORM = Object.freeze({
     id: "1M-vZ24Yw4ZN7R7b_473cVn8kny8DznTakSsD3VQsCzc",
     label: "LOGISTICS MASTER 2026"
   }),
-  finishedStatuses: Object.freeze(["Delivered", "Received", "Completed", "Cancelled"]),
+  finishedStatuses: Object.freeze(["Shipped", "Delivered", "Received", "Completed", "Cancelled"]),
   parcelStatusOverrides: Object.freeze({ "4634189291": "Delivered" }),
   sources: Object.freeze([
-    { id: "imports", tab: "IMPORTS", range: "A:AD", kind: "inbound", provider: "googleSheets", gid: 1497250700 },
+    { id: "imports", tab: "IMPORTS", range: "A:AF", kind: "inbound", provider: "googleSheets", gid: 1497250700 },
     { id: "transfers", tab: "TRANSFERS", range: "A:N", kind: "outbound", provider: "googleSheets", gid: 1834454901 },
     { id: "ulta", tab: "ULTA", range: "A:N", kind: "outbound", provider: "googleSheets", gid: 360479919 },
     { id: "iherb", tab: "IHERB", range: "A:M", kind: "outbound", provider: "googleSheets", gid: 955532469 },
