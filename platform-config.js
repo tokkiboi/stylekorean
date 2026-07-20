@@ -3,7 +3,7 @@
 /* Central integration manifest. Authenticated providers must use a private
    server-side endpoint; never place credentials in this public file. */
 window.STYLEKOREAN_PLATFORM = Object.freeze({
-  version: "1.2.0",
+  version: "1.3.0",
   refreshMs: 10 * 60 * 1000,
   providers: Object.freeze({
     googleSheets: Object.freeze({ label: "Google Sheets", access: "Public read-only" }),
@@ -23,9 +23,9 @@ window.STYLEKOREAN_PLATFORM = Object.freeze({
     { id: "b2b", tab: "B2B/E-COM TRUCKING", range: "A:R", kind: "outbound", provider: "googleSheets", gid: 1971553563 },
     { id: "wh-trucking", tab: "WH Trucking Request", range: "A2:U", kind: "outbound", provider: "googleSheets", gid: 852802817 },
     { id: "national-orders", tab: "NATIONAL ORDER PROGRESS", range: "A:U", kind: "outbound", provider: "googleSheets", gid: 2026071601 },
-    { id: "national-ship-out", tab: "NATIONAL SHIP OUT SCHEDULE", range: "A:K", kind: "outbound", provider: "googleSheets", gid: 20260708 },
-    { id: "tjx-ross", tab: "TJX/ROSS DIMENSION", range: "A:R", kind: "outbound", provider: "googleSheets", gid: 1110009873 },
+    { id: "outbound-schedule", tab: "Outbound Shipping Schedule", range: "A3:U", kind: "outbound", provider: "googleSheets", gid: 20260708 },
+    { id: "tjx-ross", tab: "TJX/ROSS", range: "A:R", kind: "outbound", provider: "googleSheets", gid: 1110009873 },
     { id: "website-exclusions", tab: "OUTBOUND WEBSITE EXCLUSIONS", range: "A:C", kind: "filter", provider: "googleSheets", gid: 2026071701 }
   ]),
-  kpiSource: Object.freeze({ id: "outbound-kpis", tab: "All Outbound Shipping Schedule", range: "Z1:AA5", kind: "kpi", provider: "googleSheets", gid: 20260708 })
+  kpiSource: Object.freeze({ id: "outbound-kpis", tab: "Outbound Shipping Schedule", range: "Z1:AA5", kind: "kpi", provider: "googleSheets", gid: 20260708 })
 });

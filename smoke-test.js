@@ -1,4 +1,5 @@
 const fs = require("fs");
+const indexHtml = fs.readFileSync(__dirname + "/index.html", "utf8");
 const els = {};
 function el(id) {
   if (!els[id]) els[id] = {
@@ -80,14 +81,13 @@ const payloads = {
       ["07/24/2026", "", "MACYS", "PO-N-1", "", "BEAUTY", "TRUCKING", "", "WORKING"],
       ["", "", "NO DATE", "PO-N-2", "", "BEAUTY", "TRUCKING", "", "WORKING"]
     ]),
-  "NATIONAL SHIP OUT SCHEDULE": gviz(
-    ["ACCOUNT", "ORDER NAME", "# OF POS", "SHIP METHOD", "# OF PALLETS", "# OF CARTONS", "ROUTING DATE", "SSD", "CANCEL DATE", "NOTE", "WORK PROGRESS"],
+  "Outbound Shipping Schedule": gviz(
+    ["CUSTOMER", "INVOICE NO.", "ADDRESS", "SHIP DATE", "Pallet Type", "LENGTH (IN)", "WIDTH (IN)", "HEIGHT (IN)", "WEIGHT (LBS)", "VOLUME (INCHES)", "CFT", "PCF", "DIMENSIONAL WEIGHT", "FREIGHT CLASS", "SUB CLASS", "NMFC CODE", "CARRIER", "RATE", "PRO#", "NOTE", "STATUS"],
     [
-      ["ROSS", "106k (07/29)", "1", "Trucking", "5", "320", "07/22", "07/29", "", "", "Working"],
-      ["Account", "Order/PO#", "", "", "", "", "Routing Date", "Start Ship Date", "", "", ""],
-      ["ULTA STY", "STY#25", "", "UPS", "", "", "Routing Date", "Start Ship Date", "", "", ""]
+      ["J AND Y INTERNATIONAL", "IN00455649", "Carrollton TX", "07/19/2026", "Pallet", "", "", "", "", "", "", "", "", "", "", "59420", "FEDEX", "$120", "WHS-TRACK-1", "", "Scheduled"],
+      ["FALLBACK CUSTOMER", "IN-SCHED-1", "Phoenix AZ", "07/25/2026", "Pallet", "43", "43", "48", "700", "", "", "", "", "", "", "59420", "XPO", "$250", "TRACK-ONLY-1", "", "Work in Progress"]
     ]),
-  "TJX/ROSS DIMENSION": gviz(
+  "TJX/ROSS": gviz(
     ["ORDER RECEIVED", "ORDER NAME", "DC#", "PO# ", "SHIPMENT #", "PU#", "ALT. PU# (EG.NRT#)", " PLANNED QTY", "BOX", "WEIGHT (LBS)", "PLT", "CU", "SSD", "CANCEL DATE", "SHIPOUT DATE", "BOL", "CARRIER", "STATUS"],
     [
       ["01/26", "ROSS 120K", "SWDC", "11603064", "2264700", "CS02327772", "", "13410", "467", "13246", "8", "", "2/2/2026", "", "", "CS02327772", "Paystar Logistics", "Shipped"],
@@ -101,7 +101,8 @@ const kpiPayload = gviz([], []).replace('"rows":[]',
 global.fetch = async (u) => {
   const url = new URL(u);
   const tab = url.searchParams.get("sheet");
-  const body = tab === "All Outbound Shipping Schedule" ? kpiPayload : payloads[tab] || null;
+  const range = url.searchParams.get("range");
+  const body = tab === "Outbound Shipping Schedule" && range === "Z1:AA5" ? kpiPayload : payloads[tab] || null;
   if (!body) return { ok: false, status: 404, text: async () => "" };
   return { ok: true, status: 200, text: async () => body };
 };
@@ -140,8 +141,10 @@ require("vm").runInThisContext(fs.readFileSync(__dirname + "/app.js", "utf8"), {
   assert(g("filteredOutbound()").length === 9, "Show finished did not reveal completed rows");
   assert(!out.some((r) => r.customer === "Account" || r.invoice === "Order/PO#"), "placeholder rows leaked");
   assert(out.some((r) => r.source === "TJX/ROSS" && r.customer === "ROSS 120K" && r.invoice === "11603077"), "TJX/ROSS carry-forward failed");
-  assert(out.some((r) => r.source === "National Ship Out" && r.units === "5 Pallets"), "National Ship Out mapping failed");
-  assert(g("inboundRows").length === 8 && g("inboundRows")[0].container === "TCNU1234567", "inbound planning merge failed");
+  assert(out.some((r) => r.source === "TJX/ROSS" && r.invoice === "11603077" && r.pro === "CS02333717"), "TJX/ROSS invoice or tracking mapping failed");
+  assert(out.some((r) => r.source === "WH Trucking Request" && r.invoice === "IN00455649" && r.pro === "WHS-TRACK-1"), "schedule identifier enrichment failed");
+  assert(out.some((r) => r.source === "Outbound Shipping Schedule" && r.invoice === "IN-SCHED-1" && r.pro === "TRACK-ONLY-1"), "unmatched schedule row was not retained");
+  assert(g("inboundRows").length === 8 && g("inboundRows")[0].container === "TCNU1234567" && g("inboundRows")[0].invoice === "IN00455649", "inbound invoice mapping failed");
   assert(!g("activeInbound()").some((r) => /USMM260714AIR|JSL260723/.test(r.shipmentNo)), "completed grey air rows leaked into active inbound");
   assert(out.some((r) => r.source === "Ulta" && r.pro === "454-999999" && r.status === "Shipped"), "ULTA PRO# was not treated as shipped");
   assert(g('containerTrackingProfile({ SCAC: "HDMU" }, "HMMU6453703", "LA / Long Beach").source') === "HMM official", "HMM official tracking priority failed");
@@ -158,12 +161,14 @@ require("vm").runInThisContext(fs.readFileSync(__dirname + "/app.js", "utf8"), {
   assert(g("activeParcels()").length === 1, "delivered or received parcel leaked into active tracking");
   assert(g("activeParcels()")[0].tracking === "1Z999AA10123456784", "wrong parcel remained active");
   assert(g('parcelTrackingUrl("Amazon", "TBA319137765870")') === "https://track.amazon.com/tracking/TBA319137765870", "Amazon tracking link missing");
+  assert(g('trackingNumber({ "TRACKING NUMBER": "ZX-123" })') === "ZX-123", "tracking-number header alias missing");
+  assert(indexHtml.includes('data-field="invoice">Invoice #') && indexHtml.includes("Carrier / PRO / Tracking #"), "identifier columns missing from table headers");
   assert(els["parcelCount"].textContent === "1 active", "parcel count includes completed shipments");
   assert(!els["parcelGrid"].innerHTML.includes("9400111899223856928499") && !els["parcelGrid"].innerHTML.includes("TBA319137765870") && !els["parcelGrid"].innerHTML.includes("4634189291"), "completed parcel rendered");
   assert(g("costSummary").ytd === 123456 && g("costSummary").mtd === 7890, "KPI block override failed");
   assert(g("sourceHealth").length === 11, "expected 11 sources tracked");
   assert(g("integrationSnapshot()").totals.online === 11, "integration health online count failed");
-  assert(g("integrationSnapshot()").platformVersion === "1.2.0", "platform manifest was not loaded");
+  assert(g("integrationSnapshot()").platformVersion === "1.3.0", "platform manifest was not loaded");
   assert(els["metrics"].innerHTML.includes("cost-scheduled") && els["metrics"].innerHTML.includes("cost-ytd") && els["metrics"].innerHTML.includes("cost-mtd"), "distinct cost metric styles missing");
   assert(!els["metrics"].innerHTML.includes("<small>"), "KPI notes still rendered");
   g(`applyDatabaseShipments([{
@@ -175,5 +180,11 @@ require("vm").runInThisContext(fs.readFileSync(__dirname + "/app.js", "utf8"), {
   assert(g("outboundRows").length === 1 && g("outboundRows")[0].databaseId === "db-1", "database shipment adapter failed");
   assert(g("outboundRows")[0].shipDate === "07/28/26" && g("outboundRows")[0].status === "Shipping", "database normalization failed");
   assert(g('statusControl(outboundRows[0], "outbound")').includes("databaseId") && g('statusControl(outboundRows[0], "outbound")').includes("status-select"), "database status selector missing");
+  g(`applyDatabaseShipments([{
+    id: "db-2", version: 1, direction: "inbound", status: "shipping",
+    eta_at: "2026-07-29T12:00:00Z", shipment_number: "INBOUND-DB",
+    invoice_number: "IN-DB-1", container_number: "MSKU1980420", carrier: "Maersk"
+  }])`);
+  assert(g("inboundRows")[0].invoice === "IN-DB-1", "database inbound invoice mapping failed");
   console.log(process.exitCode ? "SMOKE TEST FAILED" : "SMOKE TEST PASSED ✔");
 })().catch((e) => { console.error("FAIL", e); process.exit(1); });
