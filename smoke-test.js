@@ -34,6 +34,12 @@ const payloads = {
     ["SHIPMENT", "INVOICE", "CONTAINER", "MBL", "HBL", "VSL", "ETA", "NOTES", "RESERVED", "DELIVERY EXPECTED"],
     [
       ["SHP-101", "IN00455649", "TCNU1234567", "MBL777", "HBL888", "HMM GARNET", "07/25/2026", "in transit", "", ""],
+      ["URGENT", "COMPLETED", "ESTIMATED / CHANGED", null, null, null, null, null, null, null],
+      ["AS OF 07/17", "07/20", "07/21", "07/22", "07/23", null, null, "07/24", null, null],
+      ["SCHEDULED", "HJ65/CLIO - KOCU5021614", null, null, null, null, null, null, null, null],
+      [null, "HJ66 - HMMU6453703", null, null, null, null, null, null, null, null],
+      ["NEED SCHEDULING", "07/18 -", "- 07-25 ARRIVAL", "07/26 - ARRIVAL", null, null, null, null, null, null],
+      [null, "MCI3 - 2026 - MRKU4490018", "MCI11 - 2026 - MSKU1980420", "ES9 - 2026 - MRSU8555824", null, null, null, null, null, null],
       ["UPS", null, null, null, null, null, null, null, null, null],
       [null, "1Z999AA10123456784", "IN00456708", "Seoul", "label created, not shipped", null, null, null, null, null],
       [null, "9400111899223856928499", "IN00456709", "Seoul", "signed by dock", "Delivered", null, null, null, null],
@@ -127,7 +133,11 @@ require("vm").runInThisContext(fs.readFileSync(__dirname + "/app.js", "utf8"), {
   assert(!out.some((r) => r.customer === "Account" || r.invoice === "Order/PO#"), "placeholder rows leaked");
   assert(out.some((r) => r.source === "TJX/ROSS" && r.customer === "ROSS 120K" && r.invoice === "11603077"), "TJX/ROSS carry-forward failed");
   assert(out.some((r) => r.source === "National Ship Out" && r.units === "5 Pallets"), "National Ship Out mapping failed");
-  assert(g("inboundRows").length === 1 && g("inboundRows")[0].container === "TCNU1234567", "inbound container parse failed");
+  assert(g("inboundRows").length === 6 && g("inboundRows")[0].container === "TCNU1234567", "inbound planning merge failed");
+  assert(g("inboundRows").some((r) => r.container === "KOCU5021614" && r.status === "Completed" && r.eta === "07/20/26"), "completed planning entry was not parsed");
+  assert(g("inboundRows").some((r) => r.container === "MSKU1980420" && r.status === "Scheduled" && r.eta === "07/25/26"), "estimated planning entry was not parsed");
+  assert(!g("activeInbound()").some((r) => r.container === "KOCU5021614"), "completed planning entry leaked into active inbound");
+  assert(g("activeInbound()").some((r) => r.container === "MSKU1980420"), "estimated planning entry missing from active inbound");
   assert(g("parcelRows").length === 3 && g("parcelRows")[0].carrier === "UPS" && g("parcelRows")[0].status === "Scheduled", "parcel parse failed");
   assert(g("activeParcels()").length === 1, "delivered or received parcel leaked into active tracking");
   assert(g("activeParcels()")[0].tracking === "1Z999AA10123456784", "wrong parcel remained active");
