@@ -137,9 +137,10 @@ require("vm").runInThisContext(fs.readFileSync(__dirname + "/app.js", "utf8"), {
   assert(out.some((r) => r.source === "TJX/ROSS" && r.customer === "ROSS 120K" && r.invoice === "11603077"), "TJX/ROSS carry-forward failed");
   assert(out.some((r) => r.source === "National Ship Out" && r.units === "5 Pallets"), "National Ship Out mapping failed");
   assert(g("inboundRows").length === 6 && g("inboundRows")[0].container === "TCNU1234567", "inbound planning merge failed");
-  assert(g("inboundRows").some((r) => r.container === "KOCU5021614" && r.status === "Completed" && r.eta === "07/20/26"), "completed planning entry was not parsed");
+  assert(g("inboundRows").some((r) => r.container === "KOCU5021614" && r.status === "Scheduled" && r.eta === "07/20/26"), "scheduled planning entry was not parsed");
   assert(g("inboundRows").some((r) => r.container === "MSKU1980420" && r.status === "Scheduled" && r.eta === "07/25/26"), "estimated planning entry was not parsed");
-  assert(!g("activeInbound()").some((r) => r.container === "KOCU5021614"), "completed planning entry leaked into active inbound");
+  assert(g("activeInbound()").some((r) => r.container === "KOCU5021614"), "HJ65 scheduled planning entry missing from active inbound");
+  assert(g("activeInbound()").some((r) => r.container === "HMMU6453703"), "HJ66 scheduled planning entry missing from active inbound");
   assert(g("activeInbound()").some((r) => r.container === "MSKU1980420"), "estimated planning entry missing from active inbound");
   assert(g("parcelRows").length === 4 && g("parcelRows")[0].carrier === "UPS" && g("parcelRows")[0].status === "Scheduled", "parcel parse failed");
   assert(g("parcelRows").some((r) => r.tracking === "4634189291" && r.status === "Delivered"), "verified DHL delivery override missing");
