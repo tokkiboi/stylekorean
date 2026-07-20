@@ -153,9 +153,8 @@ require("vm").runInThisContext(fs.readFileSync(__dirname + "/app.js", "utf8"), {
   assert(g("sourceHealth").length === 11, "expected 11 sources tracked");
   assert(g("integrationSnapshot()").totals.online === 11, "integration health online count failed");
   assert(g("integrationSnapshot()").platformVersion === "1.0.0", "platform manifest was not loaded");
-  assert(els["integrationRows"].innerHTML.includes("Google Sheets") && els["integrationRows"].innerHTML.includes("Online"), "integration health table did not render");
-  assert(els["sourceStrip"].innerHTML.includes("#gid=1497250700"), "IMPORTS source link missing");
-  assert(els["sourceStrip"].innerHTML.includes("noopener noreferrer"), "source links are not safely opened");
+  assert(els["metrics"].innerHTML.includes("cost-scheduled") && els["metrics"].innerHTML.includes("cost-ytd") && els["metrics"].innerHTML.includes("cost-mtd"), "distinct cost metric styles missing");
+  assert(!els["metrics"].innerHTML.includes("<small>"), "KPI notes still rendered");
   g(`applyDatabaseShipments([{
     id: "db-1", version: 3, direction: "outbound", status: "shipping",
     scheduled_at: "2026-07-28T12:00:00Z", customer: "DATABASE CUSTOMER",

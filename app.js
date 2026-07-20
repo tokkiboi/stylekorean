@@ -855,13 +855,13 @@ function renderMetrics() {
     ["Finished outbound", costSummary.finished.toLocaleString(), "Shipped · done · received · delivered · cancelled", ""],
     ["Inbound active", activeInbound().length.toLocaleString(), "Ocean + air shipments", ""],
     ["Small parcel", activeParcels().length.toLocaleString(), "Active tracking · delivered and received excluded", ""],
-    ["Scheduled outbound cost", `$${Math.round(scheduledCost).toLocaleString()}`, "Active rows with a charge", "accent"],
-    ["YTD shipping cost", `$${Math.round(costSummary.ytd).toLocaleString()}`, costSummary.kpiSource === "workbook" ? "From protected KPI block" : "Computed from source rows", "accent"],
-    ["MTD shipping cost", `$${Math.round(costSummary.mtd).toLocaleString()}`, costSummary.kpiSource === "workbook" ? "From protected KPI block" : "Computed from source rows", "accent"],
+    ["Scheduled outbound cost", `$${Math.round(scheduledCost).toLocaleString()}`, "Active rows with a charge", "cost-scheduled"],
+    ["YTD shipping cost", `$${Math.round(costSummary.ytd).toLocaleString()}`, costSummary.kpiSource === "workbook" ? "From protected KPI block" : "Computed from source rows", "cost-ytd"],
+    ["MTD shipping cost", `$${Math.round(costSummary.mtd).toLocaleString()}`, costSummary.kpiSource === "workbook" ? "From protected KPI block" : "Computed from source rows", "cost-mtd"],
     ["Ocean containers", inboundRows.filter((r) => r.mode === "Ocean" && !FINISHED.has(r.status)).length.toLocaleString(), "Active container shipments", ""]
   ];
-  $("metrics").innerHTML = cards.map(([label, value, note, cls]) =>
-    `<article class="metric-card ${cls}"><span class="label">${label}</span><strong>${value}</strong><small>${note}</small></article>`
+  $("metrics").innerHTML = cards.map(([label, value, , cls]) =>
+    `<article class="metric-card ${cls}"><span class="label">${label}</span><strong>${value}</strong></article>`
   ).join("");
 }
 
@@ -1108,8 +1108,6 @@ function renderParcels() {
 }
 
 function renderAll() {
-  renderSourceStrip();
-  renderIntegrationHealth();
   renderMetrics();
   renderBoards();
   populateFilters();
@@ -1126,7 +1124,6 @@ function debounce(fn, ms) {
 
 document.addEventListener("DOMContentLoaded", () => {
   $("refresh").addEventListener("click", () => load());
-  $("exportHealth").addEventListener("click", exportIntegrationHealth);
   $("outSearch").addEventListener("input", debounce(renderOutbound, 120));
   $("srcFilter").addEventListener("change", renderOutbound);
   $("outStatus").addEventListener("change", renderOutbound);
