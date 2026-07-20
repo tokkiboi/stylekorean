@@ -67,7 +67,7 @@
       <span class="badge-count" id="outCount">0 rows</span>
     </div>
     <div class="filters">
-      <label class="search-field"><span class="visually-hidden">Search outbound</span><span class="icon" aria-hidden="true">⌕</span><input id="outSearch" type="search" placeholder="Search customer, invoice, PRO#, carrier…"></label>
+      <label class="search-field"><span class="visually-hidden">Search outbound</span><span class="icon" aria-hidden="true">⌕</span><input id="outSearch" type="search" placeholder="Search customer, invoice #, PRO / tracking #, carrier…"></label>
       <label><span class="visually-hidden">Filter by source</span><select id="srcFilter"><option value="">All sources</option></select></label>
       <label><span class="visually-hidden">Filter by status</span><select id="outStatus"><option value="">All statuses</option></select></label>
       <label class="toggle"><input type="checkbox" id="showFinished"> Show finished</label>
@@ -75,7 +75,7 @@
     </div>
     <div class="table-wrap">
       <table class="data-table" id="outTable">
-        <thead><tr><th data-sort="source" aria-sort="none" scope="col">Source</th><th data-sort="shipDate" aria-sort="ascending" scope="col" class="sorted">Ship date</th><th data-sort="customer" aria-sort="none" scope="col">Customer / Invoice</th><th scope="col">Carrier / PRO#</th><th scope="col">Units</th><th scope="col">Dims (in) · lbs</th><th data-sort="destination" aria-sort="none" scope="col">Destination</th><th data-sort="rate" aria-sort="none" scope="col">Rate</th><th data-sort="status" aria-sort="none" scope="col">Status</th><th scope="col">Action</th></tr></thead>
+        <thead><tr><th data-sort="source" aria-sort="none" scope="col">Source</th><th data-sort="shipDate" aria-sort="ascending" scope="col" class="sorted">Ship date</th><th data-sort="customer" aria-sort="none" scope="col">Customer / Invoice #</th><th scope="col">Carrier / PRO / Tracking #</th><th scope="col">Units</th><th scope="col">Dims (in) · lbs</th><th data-sort="destination" aria-sort="none" scope="col">Destination</th><th data-sort="rate" aria-sort="none" scope="col">Rate</th><th data-sort="status" aria-sort="none" scope="col">Status</th><th scope="col">Action</th></tr></thead>
         <tbody id="outRows"></tbody>
       </table>
     </div>
@@ -88,12 +88,12 @@
       <span class="badge-count" id="inCount">0 rows</span>
     </div>
     <div class="filters filters-2">
-      <label class="search-field"><span class="visually-hidden">Search inbound</span><span class="icon" aria-hidden="true">⌕</span><input id="inSearch" type="search" placeholder="Search shipment #, container, MBL, HBL…"></label>
+      <label class="search-field"><span class="visually-hidden">Search inbound</span><span class="icon" aria-hidden="true">⌕</span><input id="inSearch" type="search" placeholder="Search shipment #, invoice #, container, MBL, HBL…"></label>
       <label><span class="visually-hidden">Filter by mode</span><select id="modeFilter"><option value="">All modes</option><option>Ocean</option><option>Air</option></select></label>
     </div>
     <div class="table-wrap">
       <table class="data-table" id="inTable">
-        <thead><tr><th>Mode</th><th>ETA</th><th>Shipment #</th><th>Container / Tracking</th><th>MBL · HBL</th><th>Carrier</th><th>Origin</th><th>Destination</th><th>Status</th></tr></thead>
+        <thead><tr><th>Mode</th><th>ETA</th><th>Shipment #</th><th data-field="invoice">Invoice #</th><th>Container / Tracking #</th><th>MBL · HBL</th><th>Carrier</th><th>Origin</th><th>Destination</th><th>Status</th></tr></thead>
         <tbody id="inRows"></tbody>
       </table>
     </div>
