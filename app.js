@@ -257,6 +257,105 @@ function mapInbound(rows) {
   });
 }
 
+function planningDate(value) {
+  const match = clean(value).match(/(\d{1,2})[\/-](\d{1,2})(?:[\/-](\d{2,4}))?/);
+  if (!match) return "";
+  return fmtDate(`${match[1]}/${match[2]}${match[3] ? "/" + match[3] : ""}`);
+}
+
+/* IMPORTS contains a calendar-style planning grid below the detailed shipment
+   table. Its cells are operational schedule sources, not ordinary table rows,
+   so scan the raw grid and merge the planned dates back into inbound records. */
+function mapInboundPlanningGrid(table) {
+  const rows = table.rows || [];
+  const marker = rows.findIndex((row) =>
+    /^URGENT$/i.test(rawCell(row, 0)) &&
+    /^COMPLETED$/i.test(rawCell(row, 1)) &&
+    /ESTIMATED\s*\/\s*CHANGED/i.test(rawCell(row, 2))
+  );
+  if (marker < 0) return [];
+
+  const topDates = new Map();
+  const topDateRow = rows[marker + 1];
+  (topDateRow?.c || []).forEach((_, column) => {
+    const date = planningDate(rawCell(topDateRow, column));
+    if (date) topDates.set(column, date);
+  });
+
+  const sectionHeaders = new Map();
+  (rows[marker]?.c || []).forEach((_, column) => {
+    const value = rawCell(rows[marker], column).toUpperCase();
+    if (value) sectionHeaders.set(column, value);
+  });
+
+  let phase = "";
+  const phaseDates = new Map();
+  const planned = [];
+  for (let rowIndex = marker + 2; rowIndex < rows.length; rowIndex++) {
+    const row = rows[rowIndex];
+    const first = rawCell(row, 0).toUpperCase();
+    if (PARCEL_SECTIONS.test(first)) break;
+    if (first === "SCHEDULED") phase = "scheduled";
+    if (first === "NEED SCHEDULING") {
+      phase = "needs-scheduling";
+      (row.c || []).forEach((_, column) => {
+        const date = planningDate(rawCell(row, column));
+        if (date) phaseDates.set(column, date);
+      });
+    }
+    if (!phase) continue;
+
+    (row.c || []).forEach((_, column) => {
+      const value = rawCell(row, column);
+      const container = clean(value).toUpperCase().match(/\b[A-Z]{4}\d{7}\b/)?.[0] || "";
+      if (!container) return;
+      const shipmentNo = value
+        .replace(new RegExp(`\\s*-?\\s*${container}\\s*$`, "i"), "")
+        .replace(/\s*-\s*$/, "")
+        .trim();
+      const eta = (phase === "needs-scheduling" ? phaseDates.get(column) : "") || topDates.get(column) || "";
+      const completed = phase === "scheduled" && /COMPLETED/.test(sectionHeaders.get(column) || "");
+      planned.push({
+        mode: "Ocean",
+        eta,
+        shipmentNo: shipmentNo || container,
+        mbl: "",
+        hbl: "",
+        container,
+        carrier: "Ocean freight",
+        trackingUrl: `https://www.searates.com/container/tracking/?container=${encodeURIComponent(container)}`,
+        origin: "IMPORTS planning grid",
+        destination: "LA / Long Beach",
+        status: completed ? "Completed" : "Scheduled"
+      });
+    });
+  }
+  return planned;
+}
+
+function mergeInboundPlanning(detailed, planned) {
+  const merged = detailed.map((row) => ({ ...row }));
+  const byContainer = new Map(merged.map((row, index) => [clean(row.container).toUpperCase(), index]));
+  planned.forEach((plan) => {
+    const key = clean(plan.container).toUpperCase();
+    const index = byContainer.get(key);
+    if (index == null) {
+      byContainer.set(key, merged.length);
+      merged.push(plan);
+      return;
+    }
+    const current = merged[index];
+    merged[index] = {
+      ...current,
+      eta: plan.eta || current.eta,
+      shipmentNo: current.shipmentNo || plan.shipmentNo,
+      status: FINISHED.has(plan.status) ? plan.status : current.status,
+      origin: [current.origin, "IMPORTS planning grid"].filter(Boolean).join(" · ")
+    };
+  });
+  return merged;
+}
+
 function mapParcels(table) {
   let section = "";
   const result = [];
@@ -545,7 +644,7 @@ async function load() {
     const excludedFn = (source, key) =>
       Boolean(key) && exclusionSet.has(`${tabOf[source] || source.toUpperCase()}|${key}`.toUpperCase());
 
-    inboundRows = mapInbound(im);
+    inboundRows = mergeInboundPlanning(mapInbound(im), mapInboundPlanningGrid(tables[0]));
     parcelRows = mapParcels(tables[0]);
     mapAllOutbound({ tr, ul, ih, b2, wh, national, shipOut, tjxRoss }, excludedFn);
 
