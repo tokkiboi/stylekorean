@@ -369,23 +369,36 @@
   // Load Data Engine
   async function loadScheduleData(forceRefresh = false) {
     state.loading = true;
-    renderTable();
 
+    // Check Local Storage cache first
+    let cachedDataLoaded = false;
     if (!forceRefresh) {
       const cached = localStorage.getItem(SNAPSHOT_KEY);
       if (cached) {
         try {
           const parsed = JSON.parse(cached);
-          state.inbound = parsed.inbound || [];
-          state.outbound = parsed.outbound || [];
-          state.lastChecked = parsed.lastChecked || new Date().toISOString();
-          state.loading = false;
-          updateDashboard();
-          return;
+          if ((parsed.inbound && parsed.inbound.length > 0) || (parsed.outbound && parsed.outbound.length > 0)) {
+            state.inbound = parsed.inbound || [];
+            state.outbound = parsed.outbound || [];
+            state.lastChecked = parsed.lastChecked || new Date().toISOString();
+            state.loading = false;
+            cachedDataLoaded = true;
+            updateDashboard();
+          }
         } catch (e) {
           console.warn("Failed to parse cached snapshot:", e);
         }
       }
+    }
+
+    // If no cached data, populate fallback data immediately so UI is 100% interactive instantly
+    if (!cachedDataLoaded && state.inbound.length === 0) {
+      const mock = generateMockData();
+      state.inbound = mock.inbound;
+      state.outbound = mock.outbound;
+      state.lastChecked = new Date().toISOString();
+      state.loading = false;
+      updateDashboard();
     }
 
     try {
@@ -410,24 +423,26 @@
         outboundData = rawRows.map(r => processRow("outbound", r));
       }
 
-      if (inboundData.length === 0 && outboundData.length === 0) {
-        throw new Error("No live CSV data returned");
+      if (inboundData.length > 0 || outboundData.length > 0) {
+        state.inbound = inboundData.length > 0 ? inboundData : state.inbound;
+        state.outbound = outboundData.length > 0 ? outboundData : state.outbound;
+        state.lastChecked = new Date().toISOString();
+
+        localStorage.setItem(SNAPSHOT_KEY, JSON.stringify({
+          inbound: state.inbound,
+          outbound: state.outbound,
+          lastChecked: state.lastChecked
+        }));
+
+        showToast("Live Google Sheets data synced!");
       }
-
-      state.inbound = inboundData;
-      state.outbound = outboundData;
-      state.lastChecked = new Date().toISOString();
-
-      localStorage.setItem(SNAPSHOT_KEY, JSON.stringify({
-        inbound: state.inbound,
-        outbound: state.outbound,
-        lastChecked: state.lastChecked
-      }));
-
-      showToast("Live Google Sheets data synced!");
     } catch (err) {
-      console.warn("Loaded snapshot fallback:", err);
-      const mock = generateMockData();
+      console.warn("Live fetch fallback:", err);
+    } finally {
+      state.loading = false;
+      updateDashboard();
+    }
+  }
       state.inbound = mock.inbound;
       state.outbound = mock.outbound;
       state.lastChecked = new Date().toISOString();
